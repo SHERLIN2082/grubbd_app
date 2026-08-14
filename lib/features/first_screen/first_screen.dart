@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/constants/app_assets.dart';
+import 'package:grubbd_app/core/widgets/grubbd_branding.dart';
 
 class FirstScreen extends StatelessWidget {
-  const FirstScreen({super.key});
+  const FirstScreen({super.key, this.showBranding = true});
+
+  final bool showBranding;
 
   @override
   Widget build(BuildContext context) {
@@ -112,35 +115,20 @@ class FirstScreen extends StatelessWidget {
                     biscuit(0.162, 0.903, 0.22),
                     croissant(0.235, 0.770, 1.72),
                     croissant(0.175, 0.900, 1.72),
-                    Positioned(
-                      left: constraints.maxWidth * 0.42,
-                      top: constraints.maxHeight * 0.255,
-                      width: constraints.maxWidth * 0.18,
-                      child: Image.asset(AppAssets.grubbdLogo),
-                    ),
-                    Positioned(
-                      left: constraints.maxWidth * 0.14,
-                      top: constraints.maxHeight * 0.355,
-                      width: constraints.maxWidth * 0.72,
-                      child: const Text(
-                        'Can\'t decide? End the food debate with Grubbd',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'Playfair Display',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black38,
-                              offset: Offset(0, 1),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
+                    if (showBranding) ...[
+                      Positioned(
+                        left: constraints.maxWidth * 0.42,
+                        top: constraints.maxHeight * 0.255,
+                        width: constraints.maxWidth * 0.18,
+                        child: const GrubbdLogo(),
                       ),
-                    ),
+                      Positioned(
+                        left: constraints.maxWidth * 0.14,
+                        top: constraints.maxHeight * 0.355,
+                        width: constraints.maxWidth * 0.72,
+                        child: const GrubbdTagline(),
+                      ),
+                    ],
                   ],
                 );
               },
