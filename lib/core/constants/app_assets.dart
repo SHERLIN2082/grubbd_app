@@ -12,4 +12,8 @@ abstract final class AppAssets {
   static const String pie = 'assets/images/pie1.png';
 
   static const String pepPizza = 'assets/images/pep-pizza.png';
+
+  static const String breadLoaf = 'assets/images/bread-loaf-upright.png';
+
+  static const String grubbdLogo = 'assets/images/grubbd-logo.png';
 }
