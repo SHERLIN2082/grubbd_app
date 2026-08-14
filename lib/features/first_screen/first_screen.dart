@@ -2,10 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/constants/app_assets.dart';
 import 'package:grubbd_app/core/widgets/grubbd_branding.dart';
 
-class FirstScreen extends StatelessWidget {
-  const FirstScreen({super.key, this.showBranding = true});
+class FirstScreen extends StatefulWidget {
+  const FirstScreen({
+    super.key,
+    this.showBranding = true,
+    this.autoNavigate = false,
+  });
 
   final bool showBranding;
+  final bool autoNavigate;
+
+  @override
+  State<FirstScreen> createState() => _FirstScreenState();
+}
+
+class _FirstScreenState extends State<FirstScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoNavigate) {
+      _openLoaderAfterDelay();
+    }
+  }
+
+  Future<void> _openLoaderAfterDelay() async {
+    // Keep the first screen visible for five seconds.
+    await Future<void>.delayed(const Duration(seconds: 5));
+
+    // The user may have closed the screen while we were waiting.
+    if (!mounted) return;
+
+    // Replace the first screen with the loader screen.
+    await Navigator.pushReplacementNamed(context, '/loader');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +144,7 @@ class FirstScreen extends StatelessWidget {
                     biscuit(0.162, 0.903, 0.22),
                     croissant(0.235, 0.770, 1.72),
                     croissant(0.175, 0.900, 1.72),
-                    if (showBranding) ...[
+                    if (widget.showBranding) ...[
                       Positioned(
                         left: constraints.maxWidth * 0.42,
                         top: constraints.maxHeight * 0.255,

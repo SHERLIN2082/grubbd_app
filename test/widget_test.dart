@@ -6,10 +6,16 @@ import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/loader/loader_screen.dart';
 
 void main() {
-  testWidgets('shows the picnic loader with a spinning logo', (
+  testWidgets('navigates from the first screen to the loader', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const GrubbdApp());
+
+    expect(find.byType(FirstScreen), findsOneWidget);
+    expect(find.byType(LoaderScreen), findsNothing);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 500));
 
     final backgroundFinder = find.byWidgetPredicate(
       (widget) =>
