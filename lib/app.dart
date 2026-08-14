@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
+import 'package:grubbd_app/features/loader/loader_screen.dart';
 
 /// Configures the application and decides which screen appears first.
 class GrubbdApp extends StatelessWidget {
@@ -7,9 +8,10 @@ class GrubbdApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: FirstScreen(),
+      home: const FirstScreen(autoNavigate: true),
+      routes: {'/loader': (_) => const LoaderScreen()},
     );
   }
 }
