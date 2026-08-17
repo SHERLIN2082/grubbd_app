@@ -47,6 +47,6 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('MO'), findsWidgets);
+    expect(find.text('Mokshaa'), findsOneWidget);
   });
 }
