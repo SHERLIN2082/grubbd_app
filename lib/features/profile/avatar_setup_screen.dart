@@ -81,6 +81,7 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Profile saved!')));
+      await Navigator.pushReplacementNamed(context, '/home');
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

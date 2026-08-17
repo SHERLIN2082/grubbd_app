@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
+import 'package:grubbd_app/features/home/home_screen.dart';
 import 'package:grubbd_app/features/loader/loader_screen.dart';
 import 'package:grubbd_app/features/profile/avatar_setup_screen.dart';
 
@@ -15,6 +16,7 @@ class GrubbdApp extends StatelessWidget {
       routes: {
         '/loader': (_) => const LoaderScreen(),
         '/profile': (_) => const AvatarSetupScreen(),
+        '/home': (_) => const HomeScreen(),
       },
     );
   }
