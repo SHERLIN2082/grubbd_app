@@ -13,43 +13,36 @@ class AvatarSetupScreen extends StatefulWidget {
 
 class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
   static const avatars = [
-    'NO',
-    'PI',
-    'TA',
-    'SU',
-    'BU',
-    'SA',
-    'EW',
-    'PA',
-    'WA',
-    'CU',
-    'AV',
-    'CH',
-    'SH',
-    'DO',
-    'GR',
-    'CO',
-    'BE',
-    'ME',
-    'SP',
-    'BL',
-    'MA',
-    'FO',
-    'FR',
-    'TI',
+    '🐶',
+    '🐱',
+    '🐰',
+    '🐻',
+    '🐼',
+    '🦊',
+    '🐯',
+    '🦁',
+    '🐵',
+    '🐸',
+    '🐨',
+    '🐮',
+    '🐷',
+    '🐥',
+    '🦄',
+    '🐙',
+    '🐢',
+    '🐬',
+    '🦋',
+    '🐝',
+    '🦉',
+    '🐧',
+    '🐳',
+    '🦖',
   ];
 
   final nameController = TextEditingController();
   late final ProfileApi profileApi;
   String selectedAvatar = avatars.first;
   bool isSaving = false;
-
-  String initialsFromName(String name) {
-    final cleanName = name.trim();
-    if (cleanName.isEmpty) return avatars.first;
-    if (cleanName.length == 1) return cleanName.toUpperCase();
-    return cleanName.substring(0, 2).toUpperCase();
-  }
 
   @override
   void initState() {
@@ -149,11 +142,6 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
                               borderSide: BorderSide.none,
                             ),
                           ),
-                          onChanged: (name) {
-                            setState(() {
-                              selectedAvatar = initialsFromName(name);
-                            });
-                          },
                         ),
                         const SizedBox(height: 8),
                         const Text(
@@ -172,9 +160,7 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
                               ),
                           itemCount: avatars.length,
                           itemBuilder: (context, index) {
-                            final avatar = index == 0
-                                ? initialsFromName(nameController.text)
-                                : avatars[index];
+                            final avatar = avatars[index];
                             final isSelected = avatar == selectedAvatar;
 
                             return InkWell(
@@ -199,7 +185,7 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
                                         ? Colors.white
                                         : const Color(0xFF5F3928),
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 11,
+                                    fontSize: 24,
                                   ),
                                 ),
                               ),
@@ -218,7 +204,10 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
                               CircleAvatar(
                                 backgroundColor: const Color(0xFFE94F54),
                                 foregroundColor: Colors.white,
-                                child: Text(selectedAvatar),
+                                child: Text(
+                                  selectedAvatar,
+                                  style: const TextStyle(fontSize: 22),
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
