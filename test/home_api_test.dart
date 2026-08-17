@@ -16,7 +16,7 @@ void main() {
       }
 
       return http.Response(
-        '[{"roomCode":"A7B2C","status":"COMPLETED",'
+        '[{"id":"1","roomCode":"A7B2C","status":"COMPLETED",'
         '"restaurantName":"Saffron Table",'
         '"createdAt":"2026-08-17T10:00:00.000Z"}]',
         200,

@@ -18,12 +18,14 @@ class HomeData {
 
 class RecentSession {
   const RecentSession({
+    required this.id,
     required this.roomCode,
     required this.status,
     required this.restaurantName,
     required this.createdAt,
   });
 
+  final String id;
   final String roomCode;
   final String status;
   final String? restaurantName;
@@ -82,10 +84,17 @@ class HomeApi {
 
     // Convert each JSON session into a RecentSession object.
     final sessions = <RecentSession>[];
+    final sessionIds = <String>{};
     for (final item in sessionList) {
       final json = item as Map<String, dynamic>;
+      final id = json['id']?.toString() ?? '';
+
+      // Do not add an ID that has already been added.
+      if (id.isEmpty || !sessionIds.add(id)) continue;
+
       sessions.add(
         RecentSession(
+          id: id,
           roomCode: json['roomCode']?.toString() ?? '',
           status: json['status']?.toString() ?? '',
           restaurantName: json['restaurantName']?.toString(),
