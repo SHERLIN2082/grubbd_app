@@ -21,6 +21,13 @@ class _LoaderScreenState extends State<LoaderScreen>
       vsync: this,
       duration: const Duration(seconds: 8),
     )..repeat();
+    _openProfileAfterDelay();
+  }
+
+  Future<void> _openProfileAfterDelay() async {
+    await Future<void>.delayed(const Duration(seconds: 5));
+    if (!mounted) return;
+    await Navigator.pushReplacementNamed(context, '/profile');
   }
 
   @override
