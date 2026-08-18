@@ -98,9 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void showCreateMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Session setup is the next screen')),
-    );
+    Navigator.pushNamed(context, '/create-session');
   }
 
   String formatDate(DateTime? date) {
