@@ -44,56 +44,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> showJoinDialog() async {
-    final codeController = TextEditingController();
-
-    final roomCode = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Join a session'),
-          content: TextField(
-            controller: codeController,
-            maxLength: 5,
-            textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(hintText: 'Enter room code'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(
-                  context,
-                  codeController.text.trim().toUpperCase(),
-                );
-              },
-              child: const Text('Join'),
-            ),
-          ],
-        );
-      },
-    );
-
-    codeController.dispose();
-    if (roomCode == null || roomCode.isEmpty || !mounted) return;
-
-    try {
-      final joinedCode = await homeApi.joinSession(roomCode);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Joined session $joinedCode')));
+  Future<void> openJoinScreen() async {
+    final joined = await Navigator.pushNamed(context, '/join-session');
+    if (joined == true && mounted) {
       await loadHome();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
     }
   }
 
@@ -218,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 52,
           child: OutlinedButton(
             key: const Key('join-session-button'),
-            onPressed: showJoinDialog,
+            onPressed: openJoinScreen,
             child: const Text('Join Session'),
           ),
         ),

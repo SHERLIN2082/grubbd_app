@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:grubbd_app/core/network/create_session_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
+import 'package:grubbd_app/features/sessions/location_search_screen.dart';
 
 class CreateSessionScreen extends StatefulWidget {
   const CreateSessionScreen({super.key, this.api});
@@ -63,113 +64,11 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
   }
 
   Future<void> chooseLocation() async {
-    final searchController = TextEditingController();
-    var suggestions = <LocationSuggestion>[];
-    var isSearching = false;
-    String? searchError;
-
-    final location = await showDialog<SessionLocation>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, updateDialog) {
-            Future<void> search() async {
-              final query = searchController.text.trim();
-              if (query.length < 2) return;
-
-              updateDialog(() => isSearching = true);
-              try {
-                final results = await api.searchLocations(query);
-                updateDialog(() {
-                  suggestions = results;
-                  searchError = null;
-                });
-              } catch (error) {
-                updateDialog(() {
-                  searchError = error.toString().replaceFirst(
-                    'Exception: ',
-                    '',
-                  );
-                });
-              } finally {
-                updateDialog(() => isSearching = false);
-              }
-            }
-
-            return AlertDialog(
-              title: const Text('Choose location'),
-              content: SizedBox(
-                width: 380,
-                height: 360,
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search an area',
-                        suffixIcon: IconButton(
-                          onPressed: search,
-                          icon: const Icon(Icons.search),
-                        ),
-                      ),
-                      onSubmitted: (_) => search(),
-                    ),
-                    const SizedBox(height: 12),
-                    if (searchError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          searchError!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    if (isSearching)
-                      const CircularProgressIndicator()
-                    else
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: suggestions.length,
-                          itemBuilder: (context, index) {
-                            final suggestion = suggestions[index];
-                            return ListTile(
-                              title: Text(suggestion.description),
-                              onTap: () async {
-                                try {
-                                  final details = await api.getLocationDetails(
-                                    suggestion.placeId,
-                                  );
-                                  if (dialogContext.mounted) {
-                                    Navigator.pop(dialogContext, details);
-                                  }
-                                } catch (error) {
-                                  updateDialog(() {
-                                    searchError = error.toString().replaceFirst(
-                                      'Exception: ',
-                                      '',
-                                    );
-                                  });
-                                }
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final location = await Navigator.push<SessionLocation>(
+      context,
+      MaterialPageRoute(builder: (_) => LocationSearchScreen(api: api)),
     );
 
-    searchController.dispose();
     if (location != null && mounted) {
       setState(() => selectedLocation = location);
     }
