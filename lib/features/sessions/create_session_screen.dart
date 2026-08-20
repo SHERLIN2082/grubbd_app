@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:grubbd_app/core/network/create_session_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/sessions/location_search_screen.dart';
+import 'package:grubbd_app/features/lobby/lobby_screen.dart';
 
 class CreateSessionScreen extends StatefulWidget {
   const CreateSessionScreen({super.key, this.api});
@@ -94,19 +95,10 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       );
 
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Session created!'),
-          content: Text(
-            'Share room code ${session.roomCode} with your friends.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Done'),
-            ),
-          ],
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LobbyScreen(sessionId: session.id),
         ),
       );
     } catch (error) {

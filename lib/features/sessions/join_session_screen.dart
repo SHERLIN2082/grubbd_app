@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/network/home_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
+import 'package:grubbd_app/features/lobby/lobby_screen.dart';
 
 class JoinSessionScreen extends StatefulWidget {
   const JoinSessionScreen({super.key, this.homeApi});
@@ -43,26 +44,14 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
     });
 
     try {
-      final joinedCode = await homeApi.joinSession(roomCode);
+      final session = await homeApi.joinSession(roomCode);
       if (!mounted) return;
-
-      await showDialog<void>(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('Session joined!'),
-            content: Text('You joined room $joinedCode.'),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Continue'),
-              ),
-            ],
-          );
-        },
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LobbyScreen(sessionId: session.id),
+        ),
       );
-
-      if (mounted) Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
       setState(() {

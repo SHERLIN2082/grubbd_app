@@ -32,6 +32,13 @@ class RecentSession {
   final DateTime? createdAt;
 }
 
+class JoinedSession {
+  const JoinedSession({required this.id, required this.roomCode});
+
+  final String id;
+  final String roomCode;
+}
+
 class HomeApi {
   // A custom client can be passed from tests. The app uses a normal client.
   HomeApi({http.Client? client}) : _client = client ?? http.Client();
@@ -110,7 +117,7 @@ class HomeApi {
     );
   }
 
-  Future<String> joinSession(String roomCode) async {
+  Future<JoinedSession> joinSession(String roomCode) async {
     final token = await _getToken();
     final response = await _client.post(
       Uri.parse('$_baseUrl/sessions/join'),
@@ -123,7 +130,10 @@ class HomeApi {
     _checkResponse(response);
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return json['roomCode']?.toString() ?? roomCode;
+    return JoinedSession(
+      id: json['sessionId'].toString(),
+      roomCode: json['roomCode']?.toString() ?? roomCode,
+    );
   }
 
   Future<String> _getToken() async {
