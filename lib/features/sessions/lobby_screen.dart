@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/network/lobby_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
-import 'package:grubbd_app/features/swipe_deck/swipe_deck_screen.dart';
+
 
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key, required this.sessionId, this.api});
@@ -23,7 +23,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
   String? errorMessage;
   bool isLoading = true;
   bool isStarting = false;
-  bool isOpeningDeck = false;
 
   @override
   void initState() {
@@ -32,7 +31,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     loadLobby();
     refreshTimer = Timer.periodic(
       const Duration(seconds: 3),
-      (_) => refreshLobby(),
+      (_) => refreshParticipants(),
     );
   }
 
@@ -65,40 +64,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
-  Future<void> refreshLobby() async {
+  Future<void> refreshParticipants() async {
     if (!mounted || details == null || details!.status != 'LOBBY') return;
     try {
-      final results = await Future.wait([
-        api.getSession(widget.sessionId),
-        api.getParticipants(widget.sessionId),
-      ]);
-      if (!mounted) return;
-      final updatedDetails = results[0] as LobbyDetails;
-      if (updatedDetails.status == 'ACTIVE') {
-        await openSwipeDeck();
-        return;
-      }
-      setState(() {
-        details = updatedDetails;
-        participants = results[1] as List<LobbyParticipant>;
-      });
+      final updated = await api.getParticipants(widget.sessionId);
+      if (mounted) setState(() => participants = updated);
     } catch (_) {
       // Keep the last good participant list during a temporary refresh error.
     }
-  }
-
-  Future<void> refreshParticipants() async => refreshLobby();
-
-  Future<void> openSwipeDeck() async {
-    if (!mounted || isOpeningDeck) return;
-    isOpeningDeck = true;
-    refreshTimer?.cancel();
-    await Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SwipeDeckScreen(sessionId: widget.sessionId),
-      ),
-    );
   }
 
   Future<void> confirmAndStartSwiping() async {
@@ -135,7 +108,21 @@ class _LobbyScreenState extends State<LobbyScreen> {
     try {
       await api.startSession(widget.sessionId);
       if (!mounted) return;
-      await openSwipeDeck();
+      setState(() {
+        details = LobbyDetails(
+          id: details!.id,
+          roomCode: details!.roomCode,
+          status: 'ACTIVE',
+          isHost: details!.isHost,
+          locationName: details!.locationName,
+          radiusKm: details!.radiusKm,
+          priceLevels: details!.priceLevels,
+          matchRule: details!.matchRule,
+        );
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Session started - time to swipe!')),
+      );
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
