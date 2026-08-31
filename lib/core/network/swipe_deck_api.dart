@@ -25,10 +25,32 @@ class SwipeRestaurant {
 }
 
 class SwipeResult {
-  const SwipeResult({required this.matched, this.matchName});
+  const SwipeResult({required this.matched, this.matchId, this.matchName});
 
   final bool matched;
+  final String? matchId;
   final String? matchName;
+}
+
+class MatchVoter {
+  const MatchVoter({required this.name, required this.avatar});
+
+  final String name;
+  final String avatar;
+}
+
+class MatchDetails {
+  const MatchDetails({
+    required this.id,
+    required this.isHost,
+    required this.restaurant,
+    required this.voters,
+  });
+
+  final String id;
+  final bool isHost;
+  final SwipeRestaurant restaurant;
+  final List<MatchVoter> voters;
 }
 
 class SwipeDeckApi {
@@ -124,8 +146,55 @@ class SwipeDeckApi {
     final match = json['match'] as Map<String, dynamic>?;
     return SwipeResult(
       matched: json['matched'] == true,
+      matchId: match?['id']?.toString(),
       matchName: match?['name']?.toString(),
     );
+  }
+
+  Future<String?> getLatestMatchId(String sessionId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/sessions/$sessionId/matches/latest'),
+      headers: await _headers(),
+    );
+    _checkResponse(response);
+    if (response.body == 'null') return null;
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['id']?.toString();
+  }
+
+  Future<MatchDetails> getMatch(String sessionId, String matchId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/sessions/$sessionId/matches/$matchId'),
+      headers: await _headers(),
+    );
+    _checkResponse(response);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final voterList = json['yesVoters'] as List<dynamic>? ?? [];
+    final voters = voterList.map((item) {
+      final voter = item as Map<String, dynamic>;
+      return MatchVoter(
+        name: voter['name']?.toString() ?? 'Guest',
+        avatar: voter['avatar']?.toString() ?? '',
+      );
+    }).toList();
+    return MatchDetails(
+      id: json['id'].toString(),
+      isHost: json['isHost'] == true,
+      restaurant: _readRestaurant(json['restaurant'] as Map<String, dynamic>),
+      voters: voters,
+    );
+  }
+
+  Future<void> chooseFinalRestaurant(
+    String sessionId,
+    String restaurantId,
+  ) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/sessions/$sessionId/final-pick'),
+      headers: {...await _headers(), 'Content-Type': 'application/json'},
+      body: jsonEncode({'restaurantId': restaurantId}),
+    );
+    _checkResponse(response);
   }
 
   Future<Map<String, String>> _headers() async {

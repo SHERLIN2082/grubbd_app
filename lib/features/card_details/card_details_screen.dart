@@ -150,6 +150,8 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     }
 
     final item = restaurant!;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final imageHeight = (screenHeight * 0.28).clamp(170.0, 230.0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -170,7 +172,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           borderRadius: BorderRadius.circular(18),
           child: SizedBox(
             width: double.infinity,
-            height: 230,
+            height: imageHeight,
             child: photo == null
                 ? Container(
                     color: const Color(0xFFFFE4B5),
@@ -186,6 +188,8 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         const SizedBox(height: 22),
         Text(
           item.name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 8),
@@ -204,7 +208,13 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
             children: [
               const Icon(Icons.location_on_outlined, size: 20),
               const SizedBox(width: 8),
-              Expanded(child: Text(item.address!)),
+              Expanded(
+                child: Text(
+                  item.address!,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ],
