@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/network/swipe_deck_api.dart';
 import 'package:grubbd_app/features/card_details/card_details_screen.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
+import 'package:grubbd_app/features/match/match_screen.dart';
 
 class SwipeDeckScreen extends StatefulWidget {
   const SwipeDeckScreen({super.key, required this.sessionId, this.api});
@@ -23,12 +25,54 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   bool isVoting = false;
   String? errorMessage;
   final Map<String, Future<Uint8List>> photoFutures = {};
+  final Set<String> shownMatchIds = {};
+  Timer? matchTimer;
+  bool isShowingMatch = false;
 
   @override
   void initState() {
     super.initState();
     api = widget.api ?? SwipeDeckApi();
     loadDeck();
+    matchTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => checkForMatch(),
+    );
+  }
+
+  @override
+  void dispose() {
+    matchTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> checkForMatch() async {
+    if (!mounted || isShowingMatch) return;
+    try {
+      final matchId = await api.getLatestMatchId(widget.sessionId);
+      if (matchId != null && !shownMatchIds.contains(matchId)) {
+        await showMatch(matchId);
+      }
+    } catch (_) {
+      // A temporary polling error should not stop restaurant swiping.
+    }
+  }
+
+  Future<void> showMatch(String matchId) async {
+    if (!mounted || isShowingMatch || shownMatchIds.contains(matchId)) return;
+    isShowingMatch = true;
+    shownMatchIds.add(matchId);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MatchScreen(
+          sessionId: widget.sessionId,
+          matchId: matchId,
+          api: api,
+        ),
+      ),
+    );
+    isShowingMatch = false;
   }
 
   Future<void> loadDeck() async {
@@ -65,14 +109,8 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
         liked: liked,
       );
       if (!mounted) return false;
-      if (result.matched) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'It is a match: ${result.matchName ?? restaurant.name}!',
-            ),
-          ),
-        );
+      if (result.matched && result.matchId != null) {
+        await showMatch(result.matchId!);
       }
       return true;
     } catch (error) {
@@ -171,8 +209,10 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              const cardRatio = 1.28;
-              var cardWidth = constraints.maxWidth;
+              const cardRatio = 1.22;
+              var cardWidth = constraints.maxWidth > 360
+                  ? 360.0
+                  : constraints.maxWidth;
               var cardHeight = cardWidth * cardRatio;
 
               if (cardHeight > constraints.maxHeight) {
