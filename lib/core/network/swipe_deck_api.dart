@@ -53,6 +53,20 @@ class MatchDetails {
   final List<MatchVoter> voters;
 }
 
+class SessionResult {
+  const SessionResult({
+    required this.restaurant,
+    required this.yesCount,
+    required this.totalParticipants,
+    required this.distanceKm,
+  });
+
+  final SwipeRestaurant restaurant;
+  final int yesCount;
+  final int totalParticipants;
+  final double? distanceKm;
+}
+
 class SwipeDeckApi {
   SwipeDeckApi({http.Client? client}) : _client = client ?? http.Client();
 
@@ -183,6 +197,45 @@ class SwipeDeckApi {
       restaurant: _readRestaurant(json['restaurant'] as Map<String, dynamic>),
       voters: voters,
     );
+  }
+
+  Future<List<SessionResult>> getResults(String sessionId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/sessions/$sessionId/results'),
+      headers: await _headers(),
+    );
+    _checkResponse(response);
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final matches = json['matches'] as List<dynamic>? ?? [];
+    final bestOverlap = json['bestOverlap'] as List<dynamic>? ?? [];
+    final resultList = matches.isNotEmpty ? matches : bestOverlap;
+    final results = <SessionResult>[];
+
+    for (final item in resultList) {
+      final resultJson = item as Map<String, dynamic>;
+      final restaurantJson = <String, dynamic>{
+        'id': resultJson['restaurantId'],
+        'name': resultJson['restaurantName'],
+        'rating': resultJson['rating'],
+        'priceLevel': null,
+        'address': resultJson['address'],
+        'photoReference': resultJson['photoReference'],
+        'googleMapsUrl': resultJson['googleMapsUrl'],
+      };
+
+      results.add(
+        SessionResult(
+          restaurant: _readRestaurant(restaurantJson),
+          yesCount: (resultJson['yesCount'] as num?)?.toInt() ?? 0,
+          totalParticipants:
+              (resultJson['totalParticipants'] as num?)?.toInt() ?? 0,
+          distanceKm: (resultJson['distanceKm'] as num?)?.toDouble(),
+        ),
+      );
+    }
+
+    return results;
   }
 
   Future<void> chooseFinalRestaurant(

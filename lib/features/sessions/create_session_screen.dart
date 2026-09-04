@@ -47,12 +47,22 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition();
+
+      debugPrint(
+        '[LOCATION 1] Device coordinates: '
+        '${position.latitude}, ${position.longitude}',
+      );
+
       final location = await api.reverseGeocode(
         position.latitude,
         position.longitude,
       );
 
       if (mounted) {
+        debugPrint(
+          '[LOCATION 2] Current location selected: ${location.address} '
+          '(${location.latitude}, ${location.longitude})',
+        );
         setState(() => selectedLocation = location);
       }
     } catch (error) {
@@ -71,6 +81,10 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     );
 
     if (location != null && mounted) {
+      debugPrint(
+        '[LOCATION 2] Searched location selected: ${location.address} '
+        '(${location.latitude}, ${location.longitude})',
+      );
       setState(() => selectedLocation = location);
     }
   }
@@ -87,6 +101,12 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
 
     setState(() => isCreating = true);
     try {
+      debugPrint(
+        '[LOCATION 3] Sending session location: '
+        '${selectedLocation!.latitude}, ${selectedLocation!.longitude}, '
+        'radius: $radiusKm km',
+      );
+
       final session = await api.createSession(
         location: selectedLocation!,
         radiusKm: radiusKm,
@@ -97,9 +117,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       if (!mounted) return;
       await Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => LobbyScreen(sessionId: session.id),
-        ),
+        MaterialPageRoute(builder: (_) => LobbyScreen(sessionId: session.id)),
       );
     } catch (error) {
       if (mounted) {
