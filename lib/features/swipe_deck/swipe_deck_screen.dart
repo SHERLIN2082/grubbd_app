@@ -6,6 +6,7 @@ import 'package:grubbd_app/core/network/swipe_deck_api.dart';
 import 'package:grubbd_app/features/card_details/card_details_screen.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/match/match_screen.dart';
+import 'package:grubbd_app/features/results/results_screen.dart';
 
 class SwipeDeckScreen extends StatefulWidget {
   const SwipeDeckScreen({super.key, required this.sessionId, this.api});
@@ -183,7 +184,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     }
     if (restaurants.isEmpty) return _emptyDeck('No restaurants were found.');
     if (currentIndex >= restaurants.length) {
-      return _emptyDeck('You have finished the deck!');
+      return _finishedDeck();
     }
 
     final restaurant = restaurants[currentIndex];
@@ -423,6 +424,37 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
         ),
         const SizedBox(height: 8),
         const Text('Waiting for everyone else to finish swiping.'),
+      ],
+    );
+  }
+
+  Widget _finishedDeck() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.check_circle_outline, size: 72, color: Colors.green),
+        const SizedBox(height: 16),
+        const Text(
+          'You have finished the deck!',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        const Text('See which restaurants received the most votes.'),
+        const SizedBox(height: 20),
+        FilledButton(
+          key: const Key('view-results-button'),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    ResultsScreen(sessionId: widget.sessionId, api: api),
+              ),
+            );
+          },
+          child: const Text('View Results'),
+        ),
       ],
     );
   }
