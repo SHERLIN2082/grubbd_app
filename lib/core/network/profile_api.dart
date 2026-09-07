@@ -9,6 +9,35 @@ class ProfileApi {
 
   final http.Client _client;
 
+  Future<bool> hasSavedDeviceId() async {
+    final preferences = await SharedPreferences.getInstance();
+    final deviceId = preferences.getString('deviceId');
+    return deviceId != null && deviceId.isNotEmpty;
+  }
+
+  Future<bool> loginAndCheckProfile() async {
+    final preferences = await SharedPreferences.getInstance();
+    final deviceId = await _getOrCreateDeviceId(preferences);
+
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/auth/guest'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'deviceId': deviceId}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_readError(response.body));
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final token = json['accessToken'].toString();
+    final user = json['user'] as Map<String, dynamic>;
+    final isProfileCompleted = user['isProfileCompleted'] == true;
+
+    await preferences.setString('accessToken', token);
+    return isProfileCompleted;
+  }
+
   String get _baseUrl {
     const customUrl = String.fromEnvironment('API_BASE_URL');
     if (customUrl.isNotEmpty) return customUrl;
@@ -43,28 +72,26 @@ class ProfileApi {
   Future<String> _getAccessToken() async {
     final preferences = await SharedPreferences.getInstance();
     final savedToken = preferences.getString('accessToken');
-    if (savedToken != null) return savedToken;
+    final savedDeviceId = preferences.getString('deviceId');
 
+    if (savedToken != null && savedDeviceId != null) {
+      return savedToken;
+    }
+
+    // This creates both the device ID and access token for a new profile.
+    await loginAndCheckProfile();
+    return preferences.getString('accessToken')!;
+  }
+
+  Future<String> _getOrCreateDeviceId(SharedPreferences preferences) async {
     var deviceId = preferences.getString('deviceId');
+
     if (deviceId == null) {
       deviceId = 'grubbd-${DateTime.now().microsecondsSinceEpoch}';
       await preferences.setString('deviceId', deviceId);
     }
 
-    final response = await _client.post(
-      Uri.parse('$_baseUrl/auth/guest'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'deviceId': deviceId}),
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_readError(response.body));
-    }
-
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final token = json['accessToken'] as String;
-    await preferences.setString('accessToken', token);
-    return token;
+    return deviceId;
   }
 
   String _readError(String body) {

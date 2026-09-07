@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/network/lobby_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 
-
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key, required this.sessionId, this.api});
 
@@ -43,14 +42,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Future<void> loadLobby() async {
     try {
-      final results = await Future.wait([
-        api.getSession(widget.sessionId),
-        api.getParticipants(widget.sessionId),
-      ]);
+      final loadedDetails = await api.getSession(widget.sessionId);
+      final loadedParticipants = await api.getParticipants(widget.sessionId);
       if (!mounted) return;
+
       setState(() {
-        details = results[0] as LobbyDetails;
-        participants = results[1] as List<LobbyParticipant>;
+        details = loadedDetails;
+        participants = loadedParticipants;
         errorMessage = null;
       });
     } catch (error) {

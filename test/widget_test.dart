@@ -5,11 +5,13 @@ import 'package:grubbd_app/core/constants/app_assets.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/loader/loader_screen.dart';
 import 'package:grubbd_app/features/profile/avatar_setup_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('navigates from the first screen to the loader', (
     WidgetTester tester,
   ) async {
+    SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const GrubbdApp());
 
     expect(find.byType(FirstScreen), findsOneWidget);

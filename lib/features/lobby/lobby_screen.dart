@@ -44,14 +44,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Future<void> loadLobby() async {
     try {
-      final results = await Future.wait([
-        api.getSession(widget.sessionId),
-        api.getParticipants(widget.sessionId),
-      ]);
+      final loadedDetails = await api.getSession(widget.sessionId);
+      final loadedParticipants = await api.getParticipants(widget.sessionId);
       if (!mounted) return;
+
       setState(() {
-        details = results[0] as LobbyDetails;
-        participants = results[1] as List<LobbyParticipant>;
+        details = loadedDetails;
+        participants = loadedParticipants;
         errorMessage = null;
       });
     } catch (error) {
@@ -68,19 +67,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Future<void> refreshLobby() async {
     if (!mounted || details == null || details!.status != 'LOBBY') return;
     try {
-      final results = await Future.wait([
-        api.getSession(widget.sessionId),
-        api.getParticipants(widget.sessionId),
-      ]);
+      final updatedDetails = await api.getSession(widget.sessionId);
+      final updatedParticipants = await api.getParticipants(widget.sessionId);
       if (!mounted) return;
-      final updatedDetails = results[0] as LobbyDetails;
+
       if (updatedDetails.status == 'ACTIVE') {
         await openSwipeDeck();
         return;
       }
       setState(() {
         details = updatedDetails;
-        participants = results[1] as List<LobbyParticipant>;
+        participants = updatedParticipants;
       });
     } catch (_) {
       // Keep the last good participant list during a temporary refresh error.

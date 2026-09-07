@@ -5,6 +5,7 @@ import 'package:grubbd_app/features/loader/loader_screen.dart';
 import 'package:grubbd_app/features/profile/avatar_setup_screen.dart';
 import 'package:grubbd_app/features/sessions/create_session_screen.dart';
 import 'package:grubbd_app/features/sessions/join_session_screen.dart';
+import 'package:grubbd_app/features/welcome/welcome_screen.dart';
 
 /// Configures the application and decides which screen appears first.
 class GrubbdApp extends StatelessWidget {
@@ -18,6 +19,7 @@ class GrubbdApp extends StatelessWidget {
       routes: {
         '/loader': (_) => const LoaderScreen(),
         '/profile': (_) => const AvatarSetupScreen(),
+        '/welcome': (_) => const WelcomeScreen(),
         '/home': (_) => const HomeScreen(),
         '/create-session': (_) => const CreateSessionScreen(),
         '/join-session': (_) => const JoinSessionScreen(),
