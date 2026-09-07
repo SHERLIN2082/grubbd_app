@@ -1,13 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:grubbd_app/core/constants/app_assets.dart';
 
 const String grubbdTagline = 'Can\'t decide? End the food debate with Grubbd';
 
-const TextStyle grubbdTaglineStyle = TextStyle(
+const TextStyle grubbdTaglineBaseStyle = TextStyle(
   color: Colors.white,
-  fontFamily: 'Playfair Display',
   fontSize: 18,
   fontWeight: FontWeight.w600,
   height: 1.2,
@@ -30,10 +30,41 @@ class GrubbdTagline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
+    return Text(
       grubbdTagline,
       textAlign: TextAlign.center,
-      style: grubbdTaglineStyle,
+      style: GoogleFonts.merriweather(textStyle: grubbdTaglineBaseStyle),
+    );
+  }
+}
+
+class GrubbdCircularBranding extends StatelessWidget {
+  const GrubbdCircularBranding({
+    super.key,
+    required this.size,
+    required this.logoSize,
+  });
+
+  final double size;
+  final double logoSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const SizedBox.expand(
+            child: CustomPaint(
+              painter: _CircularTextPainter(
+                text: 'CAN\'T DECIDE? END THE FOOD DEBATE WITH GRUBBD ',
+              ),
+            ),
+          ),
+          GrubbdLogo(width: logoSize),
+        ],
+      ),
     );
   }
 }
@@ -130,9 +161,8 @@ class _CircularTextPainter extends CustomPainter {
       final painter = TextPainter(
         text: TextSpan(
           text: text[index],
-          style: TextStyle(
+          style: GoogleFonts.merriweather(
             color: Colors.white,
-            fontFamily: 'Playfair Display',
             fontSize: size.shortestSide * 0.064,
             fontWeight: FontWeight.w700,
             shadows: const [
