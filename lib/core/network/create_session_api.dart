@@ -77,13 +77,18 @@ class CreateSessionApi {
     _checkResponse(response);
 
     final list = jsonDecode(response.body) as List<dynamic>;
-    return list.map((item) {
+    final suggestions = <LocationSuggestion>[];
+
+    for (final item in list) {
       final json = item as Map<String, dynamic>;
-      return LocationSuggestion(
+      final suggestion = LocationSuggestion(
         placeId: json['placeId'].toString(),
         description: json['description'].toString(),
       );
-    }).toList();
+      suggestions.add(suggestion);
+    }
+
+    return suggestions;
   }
 
   Future<SessionLocation> getLocationDetails(String placeId) async {

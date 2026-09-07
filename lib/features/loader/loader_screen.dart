@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:grubbd_app/core/network/profile_api.dart';
 import 'package:grubbd_app/core/widgets/grubbd_branding.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 
 /// Displays the picnic scene while the app prepares the next screen.
 class LoaderScreen extends StatefulWidget {
-  const LoaderScreen({super.key});
+  const LoaderScreen({super.key, this.profileApi});
+
+  final ProfileApi? profileApi;
 
   @override
   State<LoaderScreen> createState() => _LoaderScreenState();
@@ -13,6 +16,7 @@ class LoaderScreen extends StatefulWidget {
 class _LoaderScreenState extends State<LoaderScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _rotationController;
+  late final ProfileApi profileApi;
 
   @override
   void initState() {
@@ -21,13 +25,39 @@ class _LoaderScreenState extends State<LoaderScreen>
       vsync: this,
       duration: const Duration(seconds: 8),
     )..repeat();
-    _openProfileAfterDelay();
+    profileApi = widget.profileApi ?? ProfileApi();
+    _openNextScreenAfterDelay();
   }
 
-  Future<void> _openProfileAfterDelay() async {
+  Future<void> _openNextScreenAfterDelay() async {
     await Future<void>.delayed(const Duration(seconds: 5));
     if (!mounted) return;
-    await Navigator.pushReplacementNamed(context, '/profile');
+
+    try {
+      final hasSavedDeviceId = await profileApi.hasSavedDeviceId();
+      if (!mounted) return;
+
+      if (!hasSavedDeviceId) {
+        debugPrint('[AUTH FLOW] No device ID found -> Profile Setup');
+        await Navigator.pushReplacementNamed(context, '/profile');
+        return;
+      }
+
+      debugPrint('[AUTH FLOW] Device ID found -> Authenticating existing user');
+      await profileApi.loginAndCheckProfile();
+      if (!mounted) return;
+
+      debugPrint('[AUTH FLOW] Existing user authenticated -> Welcome');
+      await Navigator.pushReplacementNamed(context, '/welcome');
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
   }
 
   @override

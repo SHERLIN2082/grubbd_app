@@ -61,9 +61,12 @@ class LobbyApi {
     );
     _checkResponse(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final prices = (json['priceLevel'] as List<dynamic>? ?? const [])
-        .map((value) => (value as num).toInt())
-        .toList();
+    final savedPrices = json['priceLevel'] as List<dynamic>? ?? [];
+    final prices = <int>[];
+
+    for (final savedPrice in savedPrices) {
+      prices.add((savedPrice as num).toInt());
+    }
     return LobbyDetails(
       id: json['id'].toString(),
       roomCode: json['roomCode'].toString(),
@@ -83,15 +86,20 @@ class LobbyApi {
     );
     _checkResponse(response);
     final list = jsonDecode(response.body) as List<dynamic>;
-    return list.map((item) {
+    final participants = <LobbyParticipant>[];
+
+    for (final item in list) {
       final json = item as Map<String, dynamic>;
-      return LobbyParticipant(
+      final participant = LobbyParticipant(
         id: json['id'].toString(),
         displayName: json['displayName']?.toString() ?? 'Guest',
         avatar: json['avatar']?.toString() ?? '',
         isHost: json['isHost'] == true,
       );
-    }).toList();
+      participants.add(participant);
+    }
+
+    return participants;
   }
 
   Future<void> startSession(String sessionId) async {

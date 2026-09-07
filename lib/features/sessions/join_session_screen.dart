@@ -48,9 +48,7 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
       if (!mounted) return;
       await Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => LobbyScreen(sessionId: session.id),
-        ),
+        MaterialPageRoute(builder: (_) => LobbyScreen(sessionId: session.id)),
       );
     } catch (error) {
       if (!mounted) return;

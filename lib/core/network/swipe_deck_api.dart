@@ -90,17 +90,28 @@ class SwipeDeckApi {
     final list = jsonDecode(response.body) as List<dynamic>;
 
     // Turn every JSON object from the API into a restaurant object.
-    final restaurants = list.map((item) {
+    final restaurants = <SwipeRestaurant>[];
+
+    for (final item in list) {
       final json = item as Map<String, dynamic>;
-      return _readRestaurant(json);
-    }).toList();
+      restaurants.add(_readRestaurant(json));
+    }
 
     final seenIds = <String>{};
     final seenNames = <String>{};
-    return restaurants.where((restaurant) {
+    final uniqueRestaurants = <SwipeRestaurant>[];
+
+    for (final restaurant in restaurants) {
       final nameKey = _normalize(restaurant.name);
-      return seenIds.add(restaurant.id) && seenNames.add(nameKey);
-    }).toList();
+      final hasNewId = seenIds.add(restaurant.id);
+      final hasNewName = seenNames.add(nameKey);
+
+      if (hasNewId && hasNewName) {
+        uniqueRestaurants.add(restaurant);
+      }
+    }
+
+    return uniqueRestaurants;
   }
 
   Future<SwipeRestaurant> getRestaurant(
@@ -184,13 +195,17 @@ class SwipeDeckApi {
     _checkResponse(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     final voterList = json['yesVoters'] as List<dynamic>? ?? [];
-    final voters = voterList.map((item) {
+    final voters = <MatchVoter>[];
+
+    for (final item in voterList) {
       final voter = item as Map<String, dynamic>;
-      return MatchVoter(
-        name: voter['name']?.toString() ?? 'Guest',
-        avatar: voter['avatar']?.toString() ?? '',
+      voters.add(
+        MatchVoter(
+          name: voter['name']?.toString() ?? 'Guest',
+          avatar: voter['avatar']?.toString() ?? '',
+        ),
       );
-    }).toList();
+    }
     return MatchDetails(
       id: json['id'].toString(),
       isHost: json['isHost'] == true,
