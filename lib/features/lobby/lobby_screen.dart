@@ -109,7 +109,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
     await Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => SwipeDeckScreen(sessionId: widget.sessionId),
+        builder: (_) => SwipeDeckScreen(
+          sessionId: widget.sessionId,
+          isHost: details?.isHost ?? false,
+        ),
       ),
     );
   }
@@ -164,6 +167,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Future<void> leaveLobby() async {
     if (isLeaving) return;
+
+    if (details?.isHost == true) {
+      final shouldLeave = await showLeaveConfirmation();
+      if (!shouldLeave) return;
+    }
+
     setState(() => isLeaving = true);
 
     try {
@@ -181,6 +190,34 @@ class _LobbyScreenState extends State<LobbyScreen> {
       );
       setState(() => isLeaving = false);
     }
+  }
+
+  Future<bool> showLeaveConfirmation() async {
+    final answer = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Leave the session?'),
+        content: const Text(
+          'You are the host. If you leave, the session will close for everyone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('confirm-host-leave-button'),
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE94F54),
+            ),
+            child: const Text('Leave Session'),
+          ),
+        ],
+      ),
+    );
+
+    return answer == true;
   }
 
   Future<void> openHostLeftScreen() async {
@@ -271,7 +308,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        
         Row(
           children: [
             IconButton(
