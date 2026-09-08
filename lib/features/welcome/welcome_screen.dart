@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/deep_links/deep_link_service.dart';
 import 'package:grubbd_app/core/network/home_api.dart';
+import 'package:grubbd_app/core/widgets/avatar_image.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/sessions/join_session_screen.dart';
 
@@ -102,10 +103,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
     return Column(
       children: [
-        CircleAvatar(
-          radius: 44,
-          backgroundColor: const Color(0xFFE94F54),
-          child: Text(avatar ?? '', style: const TextStyle(fontSize: 38)),
+        AvatarImage(
+          avatar: avatar ?? '',
+          fallbackText: displayName?.isNotEmpty == true
+              ? displayName![0].toUpperCase()
+              : '?',
+          size: 88,
         ),
         const SizedBox(height: 24),
         Text(

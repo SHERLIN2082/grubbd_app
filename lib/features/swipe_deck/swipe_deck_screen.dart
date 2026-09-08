@@ -10,9 +10,15 @@ import 'package:grubbd_app/features/results/results_screen.dart';
 import 'package:grubbd_app/features/sessions/host_left_screen.dart';
 
 class SwipeDeckScreen extends StatefulWidget {
-  const SwipeDeckScreen({super.key, required this.sessionId, this.api});
+  const SwipeDeckScreen({
+    super.key,
+    required this.sessionId,
+    this.isHost = false,
+    this.api,
+  });
 
   final String sessionId;
+  final bool isHost;
   final SwipeDeckApi? api;
 
   @override
@@ -110,6 +116,12 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
 
   Future<void> leaveSession() async {
     if (isLeaving) return;
+
+    if (widget.isHost) {
+      final shouldLeave = await showLeaveConfirmation();
+      if (!shouldLeave) return;
+    }
+
     setState(() => isLeaving = true);
 
     try {
@@ -127,6 +139,34 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
       );
       setState(() => isLeaving = false);
     }
+  }
+
+  Future<bool> showLeaveConfirmation() async {
+    final answer = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Leave the session?'),
+        content: const Text(
+          'You are the host. If you leave, the session will close for everyone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('confirm-host-leave-button'),
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE94F54),
+            ),
+            child: const Text('Leave Session'),
+          ),
+        ],
+      ),
+    );
+
+    return answer == true;
   }
 
   Future<void> showHostLeftScreen() async {

@@ -14,15 +14,18 @@ class AvatarImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cleanAvatar = avatar.trim();
+    final cleanAvatar = avatar.trim().replaceAll('\\', '/');
+    final imagePath = cleanAvatar.startsWith('avatar-')
+        ? 'assets/images/avatars/$cleanAvatar'
+        : cleanAvatar;
 
     return SizedBox.square(
       dimension: size,
-      child: cleanAvatar.startsWith('assets/images/avatars/')
+      child: imagePath.startsWith('assets/images/avatars/')
           ? Image.asset(
-              cleanAvatar,
+              imagePath,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => _fallback(),
+              errorBuilder: (_, _, _) => _fallback(),
             )
           : Center(child: _fallback()),
     );
