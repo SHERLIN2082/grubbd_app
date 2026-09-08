@@ -4,16 +4,17 @@ import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/lobby/lobby_screen.dart';
 
 class JoinSessionScreen extends StatefulWidget {
-  const JoinSessionScreen({super.key, this.homeApi});
+  const JoinSessionScreen({super.key, this.homeApi, this.initialRoomCode});
 
   final HomeApi? homeApi;
+  final String? initialRoomCode;
 
   @override
   State<JoinSessionScreen> createState() => _JoinSessionScreenState();
 }
 
 class _JoinSessionScreenState extends State<JoinSessionScreen> {
-  final codeController = TextEditingController();
+  late final TextEditingController codeController;
   late final HomeApi homeApi;
   bool isJoining = false;
   String? errorMessage;
@@ -21,6 +22,7 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
   @override
   void initState() {
     super.initState();
+    codeController = TextEditingController(text: widget.initialRoomCode ?? '');
     homeApi = widget.homeApi ?? HomeApi();
   }
 

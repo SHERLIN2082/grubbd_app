@@ -1,9 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:grubbd_app/core/deep_links/deep_link_service.dart';
 import 'package:grubbd_app/core/network/lobby_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
+import 'package:grubbd_app/features/sessions/host_left_screen.dart';
 import 'package:grubbd_app/features/swipe_deck/swipe_deck_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key, required this.sessionId, this.api});
@@ -24,6 +28,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   bool isLoading = true;
   bool isStarting = false;
   bool isOpeningDeck = false;
+  bool isLeaving = false;
 
   @override
   void initState() {
@@ -48,6 +53,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
       final loadedParticipants = await api.getParticipants(widget.sessionId);
       if (!mounted) return;
 
+      if (loadedDetails.status == 'HOST_LEFT') {
+        await openHostLeftScreen();
+        return;
+      }
+
       setState(() {
         details = loadedDetails;
         participants = loadedParticipants;
@@ -70,6 +80,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
       final updatedDetails = await api.getSession(widget.sessionId);
       final updatedParticipants = await api.getParticipants(widget.sessionId);
       if (!mounted) return;
+
+      if (updatedDetails.status == 'HOST_LEFT') {
+        await openHostLeftScreen();
+        return;
+      }
 
       if (updatedDetails.status == 'ACTIVE') {
         await openSwipeDeck();
@@ -146,6 +161,63 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
+  Future<void> leaveLobby() async {
+    if (isLeaving) return;
+    setState(() => isLeaving = true);
+
+    try {
+      await api.leaveSession(widget.sessionId);
+      if (!mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+      setState(() => isLeaving = false);
+    }
+  }
+
+  Future<void> openHostLeftScreen() async {
+    refreshTimer?.cancel();
+    await Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HostLeftScreen()),
+    );
+  }
+
+  Future<void> shareInviteLink(String roomCode) async {
+    final inviteLink = DeepLinkService.createInviteLink(roomCode);
+    final message = 'Join my Grubbd room!\nRoom code: $roomCode\n$inviteLink';
+
+    try {
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          title: 'Join my Grubbd room',
+          subject: 'Grubbd room $roomCode',
+          text: message,
+        ),
+      );
+
+      if (result.status != ShareResultStatus.unavailable) {
+        return;
+      }
+    } catch (_) {
+      // Some browsers do not support the system share window.
+    }
+
+    await Clipboard.setData(ClipboardData(text: message));
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Invite copied to clipboard!')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -198,10 +270,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        
         Row(
           children: [
             IconButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isLeaving ? null : leaveLobby,
               icon: const Icon(Icons.arrow_back),
             ),
             const Text(
@@ -229,6 +302,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
               fontWeight: FontWeight.w900,
               letterSpacing: 7,
             ),
+          ),
+        ),
+        Center(
+          child: TextButton.icon(
+            key: const Key('share-invite-link-button'),
+            onPressed: () => shareInviteLink(lobby.roomCode),
+            icon: const Icon(Icons.share),
+            label: const Text('Share Invite'),
           ),
         ),
         const SizedBox(height: 16),

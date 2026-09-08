@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:grubbd_app/core/deep_links/deep_link_service.dart';
 import 'package:grubbd_app/core/network/home_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
+import 'package:grubbd_app/features/sessions/join_session_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key, this.homeApi});
@@ -145,6 +147,18 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void openHome() {
+    final roomCode = DeepLinkService.getRoomCode();
+
+    if (roomCode != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => JoinSessionScreen(initialRoomCode: roomCode),
+        ),
+      );
+      return;
+    }
+
     Navigator.pushReplacementNamed(context, '/home');
   }
 }
