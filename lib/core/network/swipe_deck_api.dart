@@ -197,6 +197,25 @@ class SwipeDeckApi {
     return json['id']?.toString();
   }
 
+  Future<String> getSessionStatus(String sessionId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/sessions/$sessionId'),
+      headers: await _headers(),
+    );
+    _checkResponse(response);
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['status']?.toString() ?? '';
+  }
+
+  Future<void> leaveSession(String sessionId) async {
+    final response = await _client.delete(
+      Uri.parse('$_baseUrl/sessions/$sessionId/leave'),
+      headers: await _headers(),
+    );
+    _checkResponse(response);
+  }
+
   Future<MatchDetails> getMatch(String sessionId, String matchId) async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/sessions/$sessionId/matches/$matchId'),

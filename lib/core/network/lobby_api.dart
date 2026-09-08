@@ -110,6 +110,14 @@ class LobbyApi {
     _checkResponse(response);
   }
 
+  Future<void> leaveSession(String sessionId) async {
+    final response = await _client.delete(
+      Uri.parse('$_baseUrl/sessions/$sessionId/leave'),
+      headers: await _headers(),
+    );
+    _checkResponse(response);
+  }
+
   Future<Map<String, String>> _headers() async {
     final preferences = await SharedPreferences.getInstance();
     final token = preferences.getString('accessToken');

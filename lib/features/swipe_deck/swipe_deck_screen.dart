@@ -7,6 +7,7 @@ import 'package:grubbd_app/features/card_details/card_details_screen.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/match/match_screen.dart';
 import 'package:grubbd_app/features/results/results_screen.dart';
+import 'package:grubbd_app/features/sessions/host_left_screen.dart';
 
 class SwipeDeckScreen extends StatefulWidget {
   const SwipeDeckScreen({super.key, required this.sessionId, this.api});
@@ -29,6 +30,8 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   final Set<String> shownMatchIds = {};
   Timer? matchTimer;
   bool isShowingMatch = false;
+  bool isLeaving = false;
+  bool isShowingHostLeft = false;
 
   @override
   void initState() {
@@ -50,6 +53,12 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   Future<void> checkForMatch() async {
     if (!mounted || isShowingMatch) return;
     try {
+      final status = await api.getSessionStatus(widget.sessionId);
+      if (status == 'HOST_LEFT') {
+        await showHostLeftScreen();
+        return;
+      }
+
       final matchId = await api.getLatestMatchId(widget.sessionId);
       if (matchId != null && !shownMatchIds.contains(matchId)) {
         await showMatch(matchId);
@@ -97,6 +106,38 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
+  }
+
+  Future<void> leaveSession() async {
+    if (isLeaving) return;
+    setState(() => isLeaving = true);
+
+    try {
+      await api.leaveSession(widget.sessionId);
+      if (!mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+      setState(() => isLeaving = false);
+    }
+  }
+
+  Future<void> showHostLeftScreen() async {
+    if (isShowingHostLeft || !mounted) return;
+    isShowingHostLeft = true;
+    matchTimer?.cancel();
+
+    await Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HostLeftScreen()),
+    );
   }
 
   Future<bool> submitVote(bool liked) async {
@@ -194,7 +235,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
         Row(
           children: [
             IconButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isLeaving ? null : leaveSession,
               icon: const Icon(Icons.arrow_back),
             ),
             Text(

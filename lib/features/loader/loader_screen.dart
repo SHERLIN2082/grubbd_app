@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:grubbd_app/core/deep_links/deep_link_service.dart';
 import 'package:grubbd_app/core/network/profile_api.dart';
 import 'package:grubbd_app/core/widgets/grubbd_branding.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
+import 'package:grubbd_app/features/sessions/join_session_screen.dart';
 
 /// Displays the picnic scene while the app prepares the next screen.
 class LoaderScreen extends StatefulWidget {
@@ -46,6 +48,18 @@ class _LoaderScreenState extends State<LoaderScreen>
       debugPrint('[AUTH FLOW] Device ID found -> Authenticating existing user');
       await profileApi.loginAndCheckProfile();
       if (!mounted) return;
+
+      final roomCode = DeepLinkService.getRoomCode();
+      if (roomCode != null) {
+        debugPrint('[DEEP LINK] Opening room $roomCode');
+        await Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => JoinSessionScreen(initialRoomCode: roomCode),
+          ),
+        );
+        return;
+      }
 
       debugPrint('[AUTH FLOW] Existing user authenticated -> Welcome');
       await Navigator.pushReplacementNamed(context, '/welcome');
