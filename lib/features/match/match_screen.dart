@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/network/swipe_deck_api.dart';
+import 'package:grubbd_app/core/widgets/avatar_image.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -250,9 +251,10 @@ class _MatchScreenState extends State<MatchScreen> {
       alignment: WrapAlignment.center,
       children: match!.voters.map((voter) {
         final initial = voter.name.isEmpty ? '?' : voter.name[0].toUpperCase();
-        return CircleAvatar(
-          backgroundColor: const Color(0xFFFFE4B5),
-          child: Text(voter.avatar.isEmpty ? initial : voter.avatar),
+        return AvatarImage(
+          avatar: voter.avatar,
+          fallbackText: initial,
+          size: 40,
         );
       }).toList(),
     );
