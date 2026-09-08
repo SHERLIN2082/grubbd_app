@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/network/home_api.dart';
+import 'package:grubbd_app/core/widgets/avatar_image.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -126,10 +127,10 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Row(
           children: [
-            CircleAvatar(
-              backgroundColor: const Color(0xFFE94F54),
-              foregroundColor: Colors.white,
-              child: Text(data.avatar),
+            AvatarImage(
+              avatar: data.avatar,
+              fallbackText: data.displayName.characters.first.toUpperCase(),
+              size: 34,
             ),
             const SizedBox(width: 10),
             const Expanded(
@@ -138,10 +139,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: const Color(0xFFFFE4B5),
-              child: Text(data.avatar.characters.first),
+            AvatarImage(
+              avatar: data.avatar,
+              fallbackText: data.displayName.characters.first.toUpperCase(),
+              size: 36,
             ),
           ],
         ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/network/lobby_api.dart';
+import 'package:grubbd_app/core/widgets/avatar_image.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 
 class LobbyScreen extends StatefulWidget {
@@ -330,12 +331,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ListTile(
         dense: true,
-        leading: CircleAvatar(
-          radius: 17,
-          backgroundColor: const Color(0xFFFFE4B5),
-          child: Text(
-            participant.avatar.isEmpty ? initials : participant.avatar,
-          ),
+        leading: AvatarImage(
+          avatar: participant.avatar,
+          fallbackText: initials,
+          size: 34,
         ),
         title: Text(
           participant.displayName,

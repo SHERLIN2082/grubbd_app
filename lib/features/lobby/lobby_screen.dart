@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:grubbd_app/core/deep_links/deep_link_service.dart';
 import 'package:grubbd_app/core/network/lobby_api.dart';
+import 'package:grubbd_app/core/widgets/avatar_image.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/sessions/host_left_screen.dart';
 import 'package:grubbd_app/features/swipe_deck/swipe_deck_screen.dart';
@@ -423,12 +424,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ListTile(
         dense: true,
-        leading: CircleAvatar(
-          radius: 17,
-          backgroundColor: const Color(0xFFFFE4B5),
-          child: Text(
-            participant.avatar.isEmpty ? initials : participant.avatar,
-          ),
+        leading: AvatarImage(
+          avatar: participant.avatar,
+          fallbackText: initials,
+          size: 34,
         ),
         title: Text(
           participant.displayName,
