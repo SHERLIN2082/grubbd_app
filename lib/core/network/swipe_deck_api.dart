@@ -67,6 +67,16 @@ class SessionResult {
   final double? distanceKm;
 }
 
+class SessionResultsSummary {
+  const SessionResultsSummary({
+    required this.results,
+    required this.hasExactMatches,
+  });
+
+  final List<SessionResult> results;
+  final bool hasExactMatches;
+}
+
 class SwipeDeckApi {
   SwipeDeckApi({http.Client? client}) : _client = client ?? http.Client();
 
@@ -233,7 +243,7 @@ class SwipeDeckApi {
     );
   }
 
-  Future<List<SessionResult>> getResults(String sessionId) async {
+  Future<SessionResultsSummary> getResults(String sessionId) async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/sessions/$sessionId/results'),
       headers: await _headers(),
@@ -243,7 +253,8 @@ class SwipeDeckApi {
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     final matches = json['matches'] as List<dynamic>? ?? [];
     final bestOverlap = json['bestOverlap'] as List<dynamic>? ?? [];
-    final resultList = matches.isNotEmpty ? matches : bestOverlap;
+    final hasExactMatches = matches.isNotEmpty;
+    final resultList = hasExactMatches ? matches : bestOverlap;
     final results = <SessionResult>[];
 
     for (final item in resultList) {
@@ -269,7 +280,10 @@ class SwipeDeckApi {
       );
     }
 
-    return results;
+    return SessionResultsSummary(
+      results: results,
+      hasExactMatches: hasExactMatches,
+    );
   }
 
   Future<void> chooseFinalRestaurant(
