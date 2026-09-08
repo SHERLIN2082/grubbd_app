@@ -54,7 +54,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       final loadedParticipants = await api.getParticipants(widget.sessionId);
       if (!mounted) return;
 
-      if (loadedDetails.status == 'HOST_LEFT') {
+      if (loadedDetails.status == 'HOST_LEFT' && !loadedDetails.isHost) {
         await openHostLeftScreen();
         return;
       }
@@ -82,7 +82,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       final updatedParticipants = await api.getParticipants(widget.sessionId);
       if (!mounted) return;
 
-      if (updatedDetails.status == 'HOST_LEFT') {
+      if (updatedDetails.status == 'HOST_LEFT' && !updatedDetails.isHost) {
         await openHostLeftScreen();
         return;
       }
@@ -171,6 +171,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     if (details?.isHost == true) {
       final shouldLeave = await showLeaveConfirmation();
       if (!shouldLeave) return;
+      refreshTimer?.cancel();
     }
 
     setState(() => isLeaving = true);
