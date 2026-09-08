@@ -60,7 +60,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     if (!mounted || isShowingMatch) return;
     try {
       final status = await api.getSessionStatus(widget.sessionId);
-      if (status == 'HOST_LEFT') {
+      if (status == 'HOST_LEFT' && !widget.isHost) {
         await showHostLeftScreen();
         return;
       }
@@ -120,6 +120,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     if (widget.isHost) {
       final shouldLeave = await showLeaveConfirmation();
       if (!shouldLeave) return;
+      matchTimer?.cancel();
     }
 
     setState(() => isLeaving = true);
