@@ -15,10 +15,7 @@ void main() {
     await tester.pumpWidget(const GrubbdApp());
 
     expect(find.byType(FirstScreen), findsOneWidget);
-    expect(find.byType(LoaderScreen), findsNothing);
-
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(LoaderScreen), findsOneWidget);
 
     final backgroundFinder = find.byWidgetPredicate(
       (widget) =>

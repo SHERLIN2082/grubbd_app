@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class DeepLinkService {
   static String? getRoomCode() {
     final roomCode = Uri.base.queryParameters['roomCode'];
@@ -16,11 +18,27 @@ class DeepLinkService {
 
   static String createInviteLink(String roomCode) {
     const savedBaseUrl = String.fromEnvironment('SHARE_BASE_URL');
-    final baseUrl = savedBaseUrl.isEmpty ? Uri.base.origin : savedBaseUrl;
-    final baseUri = Uri.parse(baseUrl);
+    final cleanCode = roomCode.trim().toUpperCase();
 
-    return baseUri
-        .replace(queryParameters: {'roomCode': roomCode.toUpperCase()})
-        .toString();
+    // Use the supplied website when the app has a public domain.
+    if (savedBaseUrl.isNotEmpty) {
+      return Uri.parse(
+        savedBaseUrl,
+      ).replace(queryParameters: {'roomCode': cleanCode}).toString();
+    }
+
+    // Chrome can share its current website address.
+    if (kIsWeb) {
+      return Uri.base
+          .replace(queryParameters: {'roomCode': cleanCode})
+          .toString();
+    }
+
+    // Android and iOS use the Grubbd application link.
+    return Uri(
+      scheme: 'grubbd',
+      host: 'join',
+      queryParameters: {'roomCode': cleanCode},
+    ).toString();
   }
 }

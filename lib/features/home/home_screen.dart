@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/network/home_api.dart';
 import 'package:grubbd_app/core/widgets/avatar_image.dart';
-import 'package:grubbd_app/features/first_screen/first_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.homeApi});
@@ -64,37 +63,31 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const FirstScreen(showBranding: false),
-          SafeArea(
-            child: RefreshIndicator(
-              onRefresh: loadHome,
-              child: ListView(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: loadHome,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
                 padding: const EdgeInsets.all(20),
-                children: [
-                  Center(
+                sliver: SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 430),
-                      child: Container(
+                      child: Padding(
                         padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: const Color(0xF2FFF8EE),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black26, blurRadius: 18),
-                          ],
-                        ),
                         child: _buildContent(),
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -123,26 +116,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final data = homeData!;
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             AvatarImage(
               avatar: data.avatar,
               fallbackText: data.displayName.characters.first.toUpperCase(),
-              size: 34,
+              size: 52,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 14),
             const Expanded(
               child: Text(
                 'Where Should We Eat?',
-                style: TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
-            ),
-            AvatarImage(
-              avatar: data.avatar,
-              fallbackText: data.displayName.characters.first.toUpperCase(),
-              size: 36,
             ),
           ],
         ),
@@ -178,20 +168,33 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 28),
-        const Text(
-          'Recent Sessions',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 10),
-        if (data.recentSessions.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text('No sessions yet. Start your first one!'),
+        Card(
+          margin: EdgeInsets.zero,
+          color: const Color(0xBFFFF8EE),
+          elevation: 1,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Recent Sessions',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+                if (data.recentSessions.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text('No sessions yet. Start your first one!'),
+                    ),
+                  )
+                else
+                  ...data.recentSessions.map(_buildSessionTile),
+              ],
             ),
-          )
-        else
-          ...data.recentSessions.map(_buildSessionTile),
+          ),
+        ),
       ],
     );
   }
