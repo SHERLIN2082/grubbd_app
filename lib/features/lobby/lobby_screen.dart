@@ -230,10 +230,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> shareInviteLink(String roomCode) async {
-    final inviteLink = DeepLinkService.createInviteLink(roomCode);
-    final message = 'Join my Grubbd room!\nRoom code: $roomCode\n$inviteLink';
-
     try {
+      final inviteLink = DeepLinkService.createInviteLink(roomCode);
+      final message = 'Join my Grubbd room!\nRoom code: $roomCode\n$inviteLink';
+
       final result = await SharePlus.instance.share(
         ShareParams(
           title: 'Join my Grubbd room',
@@ -245,11 +245,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
       if (result.status != ShareResultStatus.unavailable) {
         return;
       }
-    } catch (_) {
-      // Some browsers do not support the system share window.
-    }
 
-    await Clipboard.setData(ClipboardData(text: message));
+      await Clipboard.setData(ClipboardData(text: message));
+    } catch (_) {
+      // If sharing is unavailable, copy at least the room code.
+      await Clipboard.setData(
+        ClipboardData(text: 'Join my Grubbd room! Room code: $roomCode'),
+      );
+    }
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

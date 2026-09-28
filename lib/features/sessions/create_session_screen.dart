@@ -4,6 +4,7 @@ import 'package:grubbd_app/core/network/create_session_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/sessions/location_search_screen.dart';
 import 'package:grubbd_app/features/lobby/lobby_screen.dart';
+import 'package:grubbd_app/core/network/profile_api.dart';
 
 class CreateSessionScreen extends StatefulWidget {
   const CreateSessionScreen({super.key, this.api});
@@ -22,6 +23,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
   String matchRule = 'ALL';
   bool isLoadingLocation = false;
   bool isCreating = false;
+  String? foodPreference;
 
   @override
   void initState() {
@@ -101,6 +103,9 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
 
     setState(() => isCreating = true);
     try {
+      if (foodPreference != null) {
+        await ProfileApi().saveFoodPreference(foodPreference!);
+      }
       debugPrint(
         '[LOCATION 3] Sending session location: '
         '${selectedLocation!.latitude}, ${selectedLocation!.longitude}, '
@@ -194,6 +199,32 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                         ),
                         const SizedBox(height: 14),
                         _locationCard(),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Food preference',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          initialValue: foodPreference,
+                          hint: const Text('Choose what to include'),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'Any food',
+                              child: Text('Any food'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Vegetarian',
+                              child: Text('Vegetarian'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Non-vegetarian',
+                              child: Text('Non-vegetarian'),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => foodPreference = value),
+                        ),
                         const SizedBox(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

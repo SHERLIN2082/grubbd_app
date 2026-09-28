@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/deep_links/deep_link_service.dart';
 import 'package:grubbd_app/core/network/home_api.dart';
+import 'package:grubbd_app/core/network/profile_api.dart';
 import 'package:grubbd_app/core/widgets/avatar_image.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/sessions/join_session_screen.dart';
@@ -35,6 +36,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     });
 
     try {
+      final profileApi = ProfileApi();
+      final isComplete = await profileApi.loginAndCheckProfile();
+      if (!isComplete) {
+        if (mounted) await Navigator.pushReplacementNamed(context, '/profile');
+        return;
+      }
       final homeData = await homeApi.loadHome();
       if (!mounted) return;
 

@@ -69,6 +69,32 @@ class ProfileApi {
     }
   }
 
+  Future<String?> getFoodPreference() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/users/preferences'),
+      headers: {'Authorization': 'Bearer ${await _getAccessToken()}'},
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_readError(response.body));
+    }
+    return (jsonDecode(response.body) as Map<String, dynamic>)['foodPreference']
+        ?.toString();
+  }
+
+  Future<void> saveFoodPreference(String foodPreference) async {
+    final response = await _client.patch(
+      Uri.parse('$_baseUrl/users/preferences'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${await _getAccessToken()}',
+      },
+      body: jsonEncode({'foodPreference': foodPreference}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_readError(response.body));
+    }
+  }
+
   Future<String> _getAccessToken() async {
     final preferences = await SharedPreferences.getInstance();
     final savedToken = preferences.getString('accessToken');
