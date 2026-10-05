@@ -2,11 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grubbd_app/core/constants/app_assets.dart';
 import 'package:grubbd_app/core/network/profile_api.dart';
+import 'package:grubbd_app/features/shell/social_bottom_bar.dart';
 
 class AvatarSetupScreen extends StatefulWidget {
-  const AvatarSetupScreen({super.key, this.profileApi});
+  const AvatarSetupScreen({
+    super.key,
+    this.profileApi,
+    this.showBackButton = false,
+    this.isUpdate = false,
+    this.showBottomBar = false,
+  });
 
   final ProfileApi? profileApi;
+  final bool showBackButton;
+  final bool isUpdate;
+  final bool showBottomBar;
 
   @override
   State<AvatarSetupScreen> createState() => _AvatarSetupScreenState();
@@ -74,7 +84,11 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Profile saved!')));
-      await Navigator.pushReplacementNamed(context, '/welcome');
+      if (widget.isUpdate) {
+        if (mounted) Navigator.of(context).pop(true);
+      } else {
+        await Navigator.pushReplacementNamed(context, '/welcome');
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -106,6 +120,19 @@ class _AvatarSetupScreenState extends State<AvatarSetupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
+      appBar: widget.showBackButton
+          ? AppBar(
+              title: const Text('Update profile'),
+              leading: IconButton(
+                tooltip: 'Back',
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+            )
+          : null,
+      bottomNavigationBar: widget.showBottomBar
+          ? const SocialBottomBar(selectedIndex: 3)
+          : null,
       body: Stack(
         fit: StackFit.expand,
         children: [

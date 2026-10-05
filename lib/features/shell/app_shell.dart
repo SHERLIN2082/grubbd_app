@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:grubbd_app/features/home/home_screen.dart';
 import 'package:grubbd_app/core/constants/app_assets.dart';
 import 'package:grubbd_app/core/network/home_api.dart';
@@ -6,23 +7,25 @@ import 'package:grubbd_app/core/network/places_api.dart';
 import 'package:grubbd_app/core/network/swipe_deck_api.dart';
 import 'package:grubbd_app/core/network/create_session_api.dart';
 import 'package:grubbd_app/core/network/profile_api.dart';
+import 'package:grubbd_app/core/network/saved_places_api.dart';
 import 'package:grubbd_app/features/sessions/location_search_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.initialIndex = 0});
+  final int initialIndex;
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
-  int index = 0;
+  late int index = widget.initialIndex;
   final pages = const [
     HomeScreen(),
     _ExplorePage(),
-    _SessionsPage(),
+    _GroupsPage(),
     _ProfilePage(),
   ];
   @override
@@ -30,9 +33,12 @@ class _AppShellState extends State<AppShell> {
     body: Stack(
       fit: StackFit.expand,
       children: [
-        const Image(
-          image: AssetImage(AppAssets.firstScreenBackground),
-          fit: BoxFit.cover,
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: const Image(
+            image: AssetImage(AppAssets.firstScreenBackground),
+            fit: BoxFit.cover,
+          ),
         ),
         IndexedStack(index: index, children: pages),
       ],
@@ -56,7 +62,7 @@ class _AppShellState extends State<AppShell> {
         NavigationDestination(
           icon: Icon(Icons.groups_outlined),
           selectedIcon: Icon(Icons.groups),
-          label: 'Sessions',
+          label: 'Groups',
         ),
         NavigationDestination(
           icon: Icon(Icons.person_outline),
@@ -80,6 +86,23 @@ class _ExplorePageState extends State<_ExplorePage> {
   List<Map<String, String>> searchResults = [];
   List<SwipeRestaurant> typedResults = [];
   bool searching = false;
+
+  Future<void> _toggleSaved(SwipeRestaurant restaurant) async {
+    try {
+      final saved = await SavedPlacesApi().toggle(
+        externalId: restaurant.id,
+        restaurantName: restaurant.name,
+        address: restaurant.address,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(saved ? 'Saved to your places' : 'Removed from saved places')),
+        );
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
   @override
   void dispose() {
     searchController.dispose();
@@ -172,6 +195,17 @@ class _ExplorePageState extends State<_ExplorePage> {
             hintText: 'Search restaurants or cuisines',
           ),
         ),
+        const SizedBox(height: 12),
+        const Wrap(
+          spacing: 8,
+          children: [
+            Chip(label: Text('All')),
+            Chip(label: Text('Asian')),
+            Chip(label: Text('Italian')),
+            Chip(label: Text('Café')),
+            Chip(label: Text('Desserts')),
+          ],
+        ),
         const SizedBox(height: 16),
         if (searching) const LinearProgressIndicator(),
         if (typedResults.isNotEmpty)
@@ -182,13 +216,17 @@ class _ExplorePageState extends State<_ExplorePage> {
                 leading: const Icon(Icons.restaurant, color: Color(0xFFE94F54)),
                 title: Text(restaurant.name),
                 subtitle: Text('  •  '),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: IconButton(
+                  tooltip: 'Save place',
+                  onPressed: () => _toggleSaved(restaurant),
+                  icon: const Icon(Icons.bookmark_border),
+                ),
               ),
             ),
           ),
         const SizedBox(height: 28),
         const Text(
-          'Restaurants near you',
+          'Trending near you',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
@@ -209,7 +247,9 @@ class _ExplorePageState extends State<_ExplorePage> {
                   ),
                   TextButton(
                     onPressed: () =>
-                        setState(() => restaurants = _loadRestaurants()),
+                        setState(() {
+                          restaurants = _loadRestaurants();
+                        }),
                     child: const Text('Try again'),
                   ),
                 ],
@@ -233,7 +273,11 @@ class _ExplorePageState extends State<_ExplorePage> {
                         subtitle: Text(
                           '${restaurant.rating?.toStringAsFixed(1) ?? 'New'}  â€¢  ${restaurant.address ?? 'Nearby'}',
                         ),
-                        trailing: const Icon(Icons.chevron_right),
+                        trailing: IconButton(
+                          tooltip: 'Save place',
+                          onPressed: () => _toggleSaved(restaurant),
+                          icon: const Icon(Icons.bookmark_border),
+                        ),
                       ),
                     ),
                   )
@@ -246,14 +290,45 @@ class _ExplorePageState extends State<_ExplorePage> {
   );
 }
 
-class _SessionsPage extends StatefulWidget {
-  const _SessionsPage();
+class _GroupsPage extends StatefulWidget {
+  const _GroupsPage();
   @override
-  State<_SessionsPage> createState() => _SessionsPageState();
+  State<_GroupsPage> createState() => _GroupsPageState();
 }
 
-class _SessionsPageState extends State<_SessionsPage> {
-  late Future<HomeData> data = HomeApi().loadHome();
+class _GroupsPageState extends State<_GroupsPage> {
+  late Future<List<RecentSession>> data = HomeApi().loadHistory();
+
+  Future<void> _showCreateOptions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add_a_photo_outlined),
+              title: const Text('Create a Grubb'),
+              subtitle: const Text('Share a food experience'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(this.context, '/create-grubb');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: const Text('Create Session'),
+              subtitle: const Text('Decide where your group should eat'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(this.context, '/create-session');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => SafeArea(
     child: ListView(
@@ -263,25 +338,37 @@ class _SessionsPageState extends State<_SessionsPage> {
           children: [
             Expanded(
               child: Text(
-                'Your Sessions',
+                'Groups',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
             IconButton(
-              onPressed: () => Navigator.pushNamed(context, '/create-session'),
+              onPressed: _showCreateOptions,
               icon: const Icon(Icons.add_circle_outline),
             ),
           ],
         ),
         const SizedBox(height: 8),
         const Text(
-          'Decide together, without the back and forth.',
+          'Plan food with your people.',
           style: TextStyle(color: Colors.black54),
         ),
         const SizedBox(height: 24),
-        FutureBuilder<HomeData>(
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.groups_outlined),
+            title: const Text('Open my groups'),
+            subtitle: const Text('Create and manage your food groups'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pushNamed(context, '/groups'),
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Text('Your Sessions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        FutureBuilder<List<RecentSession>>(
           future: data,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -292,7 +379,9 @@ class _SessionsPageState extends State<_SessionsPage> {
                 'Could not load your sessions. Pull to refresh.',
               );
             }
-            final items = snapshot.data!.recentSessions;
+            final items = snapshot.data!
+                .where((session) => session.status == 'COMPLETED')
+                .toList();
             if (items.isEmpty) {
               return const Text(
                 'No sessions yet. Create one and invite your friends.',
@@ -310,7 +399,11 @@ class _SessionsPageState extends State<_SessionsPage> {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.groups_outlined),
                     title: Text(s.restaurantName ?? 'Room ${s.roomCode}'),
-                    subtitle: Text(s.status),
+                    subtitle: Text(
+                      s.members.isEmpty
+                          ? s.status
+                          : '${s.status} · ${s.members.map((member) => member['displayName']).join(', ')}',
+                    ),
                     trailing: const Icon(Icons.chevron_right),
                   ),
                 ),
@@ -379,6 +472,14 @@ class _ProfilePage extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, '/profile'),
           ),
         ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.account_circle_outlined),
+          title: const Text('View food profile'),
+          subtitle: const Text('Posts, collections, and trail'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.pushNamed(context, '/social-profile'),
+        ),
         const SizedBox(height: 16),
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -394,10 +495,48 @@ class _ProfilePage extends StatelessWidget {
         ),
         ListTile(
           contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.groups_outlined),
+          title: const Text('Groups'),
+          subtitle: const Text('Plan food with your people'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.pushNamed(context, '/groups'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.collections_bookmark_outlined),
+          title: const Text('My Collections'),
+          subtitle: const Text('Saved places and food ideas'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.pushNamed(context, '/collections'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.route_outlined),
+          title: const Text('Food Trail'),
+          subtitle: const Text('Places you have visited'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.pushNamed(context, '/food-trail'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.settings_outlined),
           title: const Text('Settings'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => _settings(context),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.description_outlined),
+          title: const Text('Terms & Conditions'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.pushNamed(context, '/terms'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: const Text('Privacy Policy'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.pushNamed(context, '/privacy'),
         ),
         const Divider(height: 32),
         ListTile(
