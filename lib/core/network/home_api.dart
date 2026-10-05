@@ -23,6 +23,7 @@ class RecentSession {
     required this.status,
     required this.restaurantName,
     required this.createdAt,
+    this.members = const [],
   });
 
   final String id;
@@ -30,6 +31,7 @@ class RecentSession {
   final String status;
   final String? restaurantName;
   final DateTime? createdAt;
+  final List<Map<String, dynamic>> members;
 }
 
 class JoinedSession {
@@ -89,6 +91,24 @@ class HomeApi {
       throw Exception('The profile avatar is missing');
     }
 
+    return HomeData(
+      displayName: displayName,
+      avatar: avatar,
+      recentSessions: _parseSessions(sessionList),
+    );
+  }
+
+  Future<List<RecentSession>> loadHistory() async {
+    final token = await _getToken();
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/sessions/history'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    _checkResponse(response);
+    return _parseSessions(jsonDecode(response.body) as List<dynamic>);
+  }
+
+  List<RecentSession> _parseSessions(List<dynamic> sessionList) {
     // Convert each JSON session into a RecentSession object.
     final sessions = <RecentSession>[];
     final sessionIds = <String>{};
@@ -106,15 +126,14 @@ class HomeApi {
           status: json['status']?.toString() ?? '',
           restaurantName: json['restaurantName']?.toString(),
           createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
+          members: (json['members'] as List<dynamic>? ?? [])
+              .whereType<Map<String, dynamic>>()
+              .toList(),
         ),
       );
     }
 
-    return HomeData(
-      displayName: displayName,
-      avatar: avatar,
-      recentSessions: sessions,
-    );
+    return sessions;
   }
 
   Future<JoinedSession> joinSession(String roomCode) async {

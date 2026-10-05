@@ -24,12 +24,21 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
   bool isLoadingLocation = false;
   bool isCreating = false;
   String? foodPreference;
+  final manualMinimumController = TextEditingController(text: '1');
+  final manualMaximumController = TextEditingController(text: '4');
 
   @override
   void initState() {
     super.initState();
     api = widget.api ?? CreateSessionApi();
     useCurrentLocation();
+  }
+
+  @override
+  void dispose() {
+    manualMinimumController.dispose();
+    manualMaximumController.dispose();
+    super.dispose();
   }
 
   Future<void> useCurrentLocation() async {
@@ -96,10 +105,18 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       showMessage('Please choose a location');
       return;
     }
-    if (selectedPrices.isEmpty) {
-      showMessage('Please choose at least one price');
+    final minimumPrice = int.tryParse(manualMinimumController.text.trim());
+    final maximumPrice = int.tryParse(manualMaximumController.text.trim());
+    if (minimumPrice == null || maximumPrice == null ||
+        minimumPrice < 0 || maximumPrice > 4 || minimumPrice > maximumPrice) {
+      showMessage('Enter a valid price range from 0 to 4');
       return;
     }
+
+    final pricesForRequest = {
+      ...selectedPrices,
+      for (var price = minimumPrice; price <= maximumPrice; price++) price,
+    }.toList()..sort();
 
     setState(() => isCreating = true);
     try {
@@ -115,7 +132,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       final session = await api.createSession(
         location: selectedLocation!,
         radiusKm: radiusKm,
-        priceLevels: selectedPrices.toList()..sort(),
+        priceLevels: pricesForRequest,
         matchRule: matchRule,
       );
 
@@ -268,6 +285,35 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                               },
                             );
                           }).toList(),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Manual price range',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: manualMinimumController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Minimum (0 to 4)',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: manualMaximumController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Maximum (0 to 4)',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 20),
                         const Text(
