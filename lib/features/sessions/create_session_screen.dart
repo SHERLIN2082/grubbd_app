@@ -5,6 +5,7 @@ import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/sessions/location_search_screen.dart';
 import 'package:grubbd_app/features/lobby/lobby_screen.dart';
 import 'package:grubbd_app/core/network/profile_api.dart';
+import 'package:grubbd_app/features/sessions/price_range_selector.dart';
 
 class CreateSessionScreen extends StatefulWidget {
   const CreateSessionScreen({super.key, this.api});
@@ -19,7 +20,8 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
   late final CreateSessionApi api;
   SessionLocation? selectedLocation;
   double radiusKm = 3;
-  Set<int> selectedPrices = {1};
+  int? priceBudget = 500;
+  final formKey = GlobalKey<FormState>();
   String matchRule = 'ALL';
   bool isLoadingLocation = false;
   bool isCreating = false;
@@ -92,12 +94,9 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
   }
 
   Future<void> createSession() async {
+    if (!formKey.currentState!.validate()) return;
     if (selectedLocation == null) {
       showMessage('Please choose a location');
-      return;
-    }
-    if (selectedPrices.isEmpty) {
-      showMessage('Please choose at least one price');
       return;
     }
 
@@ -115,7 +114,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       final session = await api.createSession(
         location: selectedLocation!,
         radiusKm: radiusKm,
-        priceLevels: selectedPrices.toList()..sort(),
+        budgetPerPerson: priceBudget,
         matchRule: matchRule,
       );
 
@@ -147,171 +146,169 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
         children: [
           const FirstScreen(showBranding: false),
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Center(
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 430),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xF2FFF8EE),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black26, blurRadius: 18),
-                      ],
+                  constraints: BoxConstraints(
+                    minHeight: (constraints.maxHeight - 40).clamp(
+                      0,
+                      double.infinity,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.arrow_back),
-                            ),
-                            const Text(
-                              'Create Session',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 430),
+                      child: Container(
+                        key: const Key('create-session-card'),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xF2FFF8EE),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 18),
                           ],
                         ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: useCurrentLocation,
-                                child: const Text('Current Location'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: chooseLocation,
-                                child: const Text('Choose Location'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        _locationCard(),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Food preference',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          initialValue: foodPreference,
-                          hint: const Text('Choose what to include'),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'Any food',
-                              child: Text('Any food'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Vegetarian',
-                              child: Text('Vegetarian'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Non-vegetarian',
-                              child: Text('Non-vegetarian'),
-                            ),
-                          ],
-                          onChanged: (value) =>
-                              setState(() => foodPreference = value),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Search radius',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                            Text('${radiusKm.round()} km'),
-                          ],
-                        ),
-                        Slider(
-                          key: const Key('radius-slider'),
-                          value: radiusKm,
-                          min: 1,
-                          max: 20,
-                          divisions: 19,
-                          onChanged: (value) =>
-                              setState(() => radiusKm = value),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Price',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: [1, 2, 3, 4].map((price) {
-                            return FilterChip(
-                              label: Text(List.filled(price, r'$').join()),
-                              selected: selectedPrices.contains(price),
-                              onSelected: (selected) {
-                                setState(() {
-                                  if (selected) {
-                                    selectedPrices.add(price);
-                                  } else {
-                                    selectedPrices.remove(price);
-                                  }
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Match rule',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        RadioGroup<String>(
-                          groupValue: matchRule,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() => matchRule = value);
-                            }
-                          },
-                          child: const Column(
+                        child: Form(
+                          key: formKey,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              RadioListTile<String>(
-                                value: 'ALL',
-                                title: Text('Everyone must agree'),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    icon: const Icon(Icons.arrow_back),
+                                  ),
+                                  const Text(
+                                    'Create Session',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              RadioListTile<String>(
-                                value: 'MAJORITY',
-                                title: Text('Most people agree'),
+                              const SizedBox(height: 14),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: FilledButton(
+                                      onPressed: useCurrentLocation,
+                                      child: const Text('Current Location'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: chooseLocation,
+                                      child: const Text('Choose Location'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              _locationCard(),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'Food preference',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                initialValue: foodPreference,
+                                hint: const Text('Choose what to include'),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'Any food',
+                                    child: Text('Any food'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Vegetarian',
+                                    child: Text('Vegetarian'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Non-vegetarian',
+                                    child: Text('Non-vegetarian'),
+                                  ),
+                                ],
+                                onChanged: (value) =>
+                                    setState(() => foodPreference = value),
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Search radius',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  Text('${radiusKm.round()} km'),
+                                ],
+                              ),
+                              Slider(
+                                key: const Key('radius-slider'),
+                                value: radiusKm,
+                                min: 1,
+                                max: 20,
+                                divisions: 19,
+                                onChanged: (value) =>
+                                    setState(() => radiusKm = value),
+                              ),
+                              const SizedBox(height: 12),
+                              PriceRangeSelector(
+                                onChanged: (value) => priceBudget = value,
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'Match rule',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              RadioGroup<String>(
+                                groupValue: matchRule,
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() => matchRule = value);
+                                  }
+                                },
+                                child: const Column(
+                                  children: [
+                                    RadioListTile<String>(
+                                      value: 'ALL',
+                                      title: Text('Everyone must agree'),
+                                    ),
+                                    RadioListTile<String>(
+                                      value: 'MAJORITY',
+                                      title: Text('Most people agree'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 52,
+                                child: FilledButton(
+                                  key: const Key('create-session-submit'),
+                                  onPressed: isCreating ? null : createSession,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFFE94F54),
+                                  ),
+                                  child: isCreating
+                                      ? const CircularProgressIndicator(
+                                          color: Colors.white,
+                                        )
+                                      : const Text('Create'),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: FilledButton(
-                            key: const Key('create-session-submit'),
-                            onPressed: isCreating ? null : createSession,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFFE94F54),
-                            ),
-                            child: isCreating
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white,
-                                  )
-                                : const Text('Create'),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

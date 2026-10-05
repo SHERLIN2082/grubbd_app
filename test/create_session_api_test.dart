@@ -16,7 +16,8 @@ void main() {
 
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       expect(body['radiusKm'], 3.0);
-      expect(body['priceLevel'], [1, 2]);
+      expect(body['budgetPerPerson'], 500);
+      expect(body.containsKey('priceLevel'), isFalse);
       expect(body['matchRule'], 'ALL');
 
       return http.Response('{"id":"10","roomCode":"A7B2C"}', 201);
@@ -29,7 +30,7 @@ void main() {
         longitude: 80.27,
       ),
       radiusKm: 3,
-      priceLevels: [1, 2],
+      budgetPerPerson: 500,
       matchRule: 'ALL',
     );
 

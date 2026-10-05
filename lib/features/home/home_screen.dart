@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:grubbd_app/core/network/home_api.dart';
 import 'package:grubbd_app/core/widgets/avatar_image.dart';
+import 'package:grubbd_app/features/lobby/lobby_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.homeApi});
@@ -45,19 +46,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> openJoinScreen() async {
-    final joined = await Navigator.pushNamed(context, '/join-session');
-    if (joined == true && mounted) {
-      await loadHome();
-    }
+    await Navigator.pushNamed(context, '/join-session');
+    if (mounted) await loadHome();
   }
 
-  void showCreateMessage() {
-    Navigator.pushNamed(context, '/create-session');
+  Future<void> showCreateMessage() async {
+    await Navigator.pushNamed(context, '/create-session');
+    if (mounted) await loadHome();
   }
 
-  String formatDate(DateTime? date) {
-    if (date == null) return '';
-    return '${date.day}/${date.month}/${date.year}';
+  Future<void> rejoinSession(RecentSession session) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => LobbyScreen(sessionId: session.id)),
+    );
+    if (mounted) await loadHome();
   }
 
   @override
@@ -167,48 +170,41 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Text('Join Session'),
           ),
         ),
-        const SizedBox(height: 28),
-        Card(
-          margin: EdgeInsets.zero,
-          color: const Color(0xBFFFF8EE),
-          elevation: 1,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Recent Sessions',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 10),
-                if (data.recentSessions.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: Text('No sessions yet. Start your first one!'),
-                    ),
-                  )
-                else
-                  ...data.recentSessions.map(_buildSessionTile),
-              ],
-            ),
-          ),
-        ),
+        ...data.recentSessions
+            .where(
+              (session) =>
+                  session.status == 'LOBBY' || session.status == 'ACTIVE',
+            )
+            .map(_buildRejoinButton),
       ],
     );
   }
 
-  Widget _buildSessionTile(RecentSession session) {
-    final title = session.restaurantName ?? 'Room ${session.roomCode}';
-
-    return Card(
-      color: const Color(0xFFFFE4B5),
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: const Icon(Icons.circle, size: 12, color: Color(0xFFE94F54)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('${session.status}  ${formatDate(session.createdAt)}'),
+  Widget _buildRejoinButton(RecentSession session) {
+    final label = session.status == 'LOBBY'
+        ? 'Rejoin Lobby'
+        : 'Rejoin Active Session';
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.tonalIcon(
+          key: ValueKey('rejoin-${session.id}'),
+          onPressed: () => rejoinSession(session),
+          icon: const Icon(Icons.login),
+          label: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              children: [
+                Text(label),
+                Text(
+                  'Room ${session.roomCode}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

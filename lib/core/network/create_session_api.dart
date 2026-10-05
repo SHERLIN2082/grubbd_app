@@ -110,7 +110,7 @@ class CreateSessionApi {
   Future<CreatedSession> createSession({
     required SessionLocation location,
     required double radiusKm,
-    required List<int> priceLevels,
+    required int? budgetPerPerson,
     required String matchRule,
   }) async {
     final token = await _getToken();
@@ -127,7 +127,7 @@ class CreateSessionApi {
           'longitude': location.longitude,
         },
         'radiusKm': radiusKm,
-        'priceLevel': priceLevels,
+        'budgetPerPerson': budgetPerPerson,
         'matchRule': matchRule,
       }),
     );

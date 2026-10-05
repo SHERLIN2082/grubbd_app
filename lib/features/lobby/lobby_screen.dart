@@ -59,11 +59,18 @@ class _LobbyScreenState extends State<LobbyScreen> {
         return;
       }
 
+      if (loadedDetails.status != 'LOBBY' && loadedDetails.status != 'ACTIVE') {
+        throw Exception('This session is no longer available to rejoin.');
+      }
+
       setState(() {
         details = loadedDetails;
         participants = loadedParticipants;
         errorMessage = null;
       });
+      if (loadedDetails.status == 'ACTIVE') {
+        await openSwipeDeck();
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
