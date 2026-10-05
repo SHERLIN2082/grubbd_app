@@ -32,8 +32,10 @@ class _LoaderScreenState extends State<LoaderScreen>
     await Future<void>.delayed(const Duration(seconds: 5));
     if (!mounted) return;
 
-    // Temporarily open avatar setup without checking the device or logging in.
-    await Navigator.pushReplacementNamed(context, '/profile');
+    // Let WelcomeScreen decide whether the user needs profile setup or can
+    // continue to the app. This prevents returning users from being sent
+    // through profile setup every time the loader is shown.
+    await Navigator.pushReplacementNamed(context, '/welcome');
   }
 
   @override

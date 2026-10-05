@@ -29,4 +29,25 @@ void main() {
     expect(data.avatar, 'AL');
     expect(data.recentSessions.single.restaurantName, 'Saffron Table');
   });
+
+  test('loads completed session history with joined members', () async {
+    SharedPreferences.setMockInitialValues({'accessToken': 'test-token'});
+
+    final client = MockClient((request) async {
+      expect(request.url.path, '/sessions/history');
+      return http.Response(
+        '[{"id":"2","roomCode":"Q9X3K","status":"COMPLETED",'
+        '"restaurantName":"Curry House","members":['
+        '{"id":"1","displayName":"Alex","isHost":true},'
+        '{"id":"2","displayName":"Sam","isHost":false}]}]',
+        200,
+      );
+    });
+
+    final history = await HomeApi(client: client).loadHistory();
+
+    expect(history.single.status, 'COMPLETED');
+    expect(history.single.members.map((member) => member['displayName']),
+        containsAll(<String>['Alex', 'Sam']));
+  });
 }
