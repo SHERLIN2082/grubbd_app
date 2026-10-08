@@ -4,6 +4,9 @@ import 'package:grubbd_app/core/network/posts_api.dart';
 import 'package:grubbd_app/core/widgets/avatar_image.dart';
 import 'package:grubbd_app/features/posts/post_detail_screen.dart';
 import 'package:grubbd_app/features/lobby/lobby_screen.dart';
+import 'package:grubbd_app/core/network/places_api.dart';
+import 'package:grubbd_app/core/network/swipe_deck_api.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.homeApi});
@@ -20,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? errorMessage;
   bool isLoading = true;
   late Future<List<FoodPost>> posts = PostsApi().list();
+  late Future<List<SwipeRestaurant>> topRatedPlaces = Future.value(const <SwipeRestaurant>[]);
 
   @override
   void initState() {
@@ -156,6 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 24),
         _buildSocialFeed(),
         const SizedBox(height: 24),
+        const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           height: 52,
@@ -276,6 +281,100 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopRatedPlaces() {
+    return FutureBuilder<List<SwipeRestaurant>>(
+      future: topRatedPlaces,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 110, child: Center(child: CircularProgressIndicator()));
+        }
+        final places = snapshot.data ?? const <SwipeRestaurant>[];
+        if (places.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Top rated near you', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 178,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: places.length,
+                separatorBuilder: (_, index) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final place = places[index];
+                  return SizedBox(
+                    width: 220,
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => Navigator.pushNamed(context, '/explore'),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.restaurant, color: Color(0xFFE94F54), size: 30),
+                              const Spacer(),
+                              Text(place.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 6),
+                              Text('${place.rating?.toStringAsFixed(1) ?? 'New'} · ${place.address ?? 'Nearby'}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.black54)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryCards() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Explore nearby',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _categoryCard('Cafe', Icons.local_cafe_outlined)),
+            const SizedBox(width: 12),
+            Expanded(child: _categoryCard('Restaurant', Icons.restaurant_outlined)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _categoryCard(String title, IconData icon) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.pushNamed(context, '/explore'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
+          child: Column(
+            children: [
+              Icon(icon, size: 34, color: const Color(0xFFE94F54)),
+              const SizedBox(height: 10),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+            ],
+          ),
         ),
       ),
     );

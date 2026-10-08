@@ -12,6 +12,8 @@ import 'package:grubbd_app/features/sessions/location_search_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, this.initialIndex = 0});
@@ -86,6 +88,49 @@ class _ExplorePageState extends State<_ExplorePage> {
   List<Map<String, String>> searchResults = [];
   List<SwipeRestaurant> typedResults = [];
   bool searching = false;
+  String selectedFilter = 'All';
+
+  Future<void> _selectFilter(String filter) async {
+    setState(() {
+      selectedFilter = filter;
+      searching = true;
+      typedResults = [];
+    });
+    try {
+      if (filter == 'All') {
+        setState(() {
+          restaurants = _loadRestaurants();
+          typedResults = [];
+        });
+      } else {
+        final position = await _currentPosition();
+        final results = await PlacesApi().nearby(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          category: filter.toLowerCase(),
+        );
+        results.sort((first, second) => (second.rating ?? 0).compareTo(first.rating ?? 0));
+        if (mounted) setState(() => typedResults = results);
+      }
+    } catch (_) {
+      if (mounted) setState(() => typedResults = []);
+    } finally {
+      if (mounted) setState(() => searching = false);
+    }
+  }
+
+  Future<Position> _currentPosition() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      throw Exception('Turn on location to explore nearby places');
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      throw Exception('Location permission is needed');
+    }
+    return Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+  }
+  final Set<String> savedPlaceIds = <String>{};
 
   Future<void> _toggleSaved(SwipeRestaurant restaurant) async {
     try {
@@ -95,6 +140,13 @@ class _ExplorePageState extends State<_ExplorePage> {
         address: restaurant.address,
       );
       if (mounted) {
+        setState(() {
+          if (saved) {
+            savedPlaceIds.add(restaurant.id);
+          } else {
+            savedPlaceIds.remove(restaurant.id);
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(saved ? 'Saved to your places' : 'Removed from saved places')),
         );
@@ -111,7 +163,10 @@ class _ExplorePageState extends State<_ExplorePage> {
 
   Future<void> _search(String query) async {
     if (query.trim().length < 2) return;
-    setState(() => searching = true);
+    setState(() {
+      searching = true;
+      typedResults = [];
+    });
     try {
       final results = await PlacesApi().searchRestaurants(query.trim());
       if (mounted) setState(() => typedResults = results);
@@ -196,19 +251,19 @@ class _ExplorePageState extends State<_ExplorePage> {
           ),
         ),
         const SizedBox(height: 12),
-        const Wrap(
+        Wrap(
           spacing: 8,
           children: [
-            Chip(label: Text('All')),
-            Chip(label: Text('Asian')),
-            Chip(label: Text('Italian')),
-            Chip(label: Text('Café')),
-            Chip(label: Text('Desserts')),
+            FilterChip(label: const Text('All'), selected: selectedFilter == 'All', onSelected: (_) => _selectFilter('All')),
+            FilterChip(label: const Text('Asian'), selected: selectedFilter == 'Asian', onSelected: (_) => _selectFilter('Asian')),
+            FilterChip(label: const Text('Italian'), selected: selectedFilter == 'Italian', onSelected: (_) => _selectFilter('Italian')),
+            FilterChip(label: const Text('Cafe'), selected: selectedFilter == 'Cafe', onSelected: (_) => _selectFilter('Cafe')),
+            FilterChip(label: const Text('Desserts'), selected: selectedFilter == 'Desserts', onSelected: (_) => _selectFilter('Desserts')),
           ],
         ),
         const SizedBox(height: 16),
         if (searching) const LinearProgressIndicator(),
-        if (typedResults.isNotEmpty)
+        if (typedResults.isNotEmpty && selectedFilter == 'All')
           ...typedResults.map(
             (restaurant) => Card(
               child: ListTile(
@@ -219,14 +274,15 @@ class _ExplorePageState extends State<_ExplorePage> {
                 trailing: IconButton(
                   tooltip: 'Save place',
                   onPressed: () => _toggleSaved(restaurant),
-                  icon: const Icon(Icons.bookmark_border),
+                  icon: Icon(savedPlaceIds.contains(restaurant.id) ? Icons.bookmark : Icons.bookmark_border),
+                  color: savedPlaceIds.contains(restaurant.id) ? Colors.black87 : null,
                 ),
               ),
             ),
           ),
         const SizedBox(height: 28),
         const Text(
-          'Trending near you',
+          'Nearby restaurants',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
@@ -255,8 +311,10 @@ class _ExplorePageState extends State<_ExplorePage> {
                 ],
               );
             }
-            return Column(
-              children: snapshot.data!
+            /* return Column(
+              children: [
+                _buildRestaurantMap(typedResults.isNotEmpty ? typedResults : snapshot.data!),
+                ...snapshot.data!
                   .map(
                     (restaurant) => Card(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -276,18 +334,59 @@ class _ExplorePageState extends State<_ExplorePage> {
                         trailing: IconButton(
                           tooltip: 'Save place',
                           onPressed: () => _toggleSaved(restaurant),
-                          icon: const Icon(Icons.bookmark_border),
+                          icon: Icon(savedPlaceIds.contains(restaurant.id) ? Icons.bookmark : Icons.bookmark_border),
+                          color: savedPlaceIds.contains(restaurant.id) ? Colors.black87 : null,
                         ),
                       ),
                     ),
                   )
                   .toList(),
-            );
+              ],
+            ); */
+            return _buildRestaurantMap(snapshot.data!);
           },
         ),
       ],
     ),
   );
+
+  Widget _categoryCard(String title, IconData icon, String value) {
+    final selected = selectedFilter == value;
+    return Card(
+      margin: EdgeInsets.zero,
+      color: selected ? const Color(0xFFFFD9CF) : const Color(0xF2FFF8EE),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _selectFilter(value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+          child: Column(children: [Icon(icon, size: 32, color: const Color(0xFFE94F54)), const SizedBox(height: 8), Text(title, style: const TextStyle(fontWeight: FontWeight.w800))]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRestaurantMap(List<SwipeRestaurant> restaurants) {
+    final mapped = restaurants.where((item) => item.latitude != null && item.longitude != null).toList();
+    if (mapped.isEmpty) return const SizedBox.shrink();
+    final first = mapped.first;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: SizedBox(
+          height: 520,
+          child: FlutterMap(
+            options: MapOptions(initialCenter: LatLng(first.latitude!, first.longitude!), initialZoom: 13),
+            children: [
+              TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.grubbd.grubbd_app'),
+              MarkerLayer(markers: mapped.map((item) => Marker(point: LatLng(item.latitude!, item.longitude!), width: 44, height: 44, child: Tooltip(message: item.name, waitDuration: const Duration(milliseconds: 250), child: GestureDetector(onTap: () => _openMap(item), child: const Icon(Icons.location_on, color: Color(0xFFE94F54), size: 40))))).toList()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _GroupsPage extends StatefulWidget {

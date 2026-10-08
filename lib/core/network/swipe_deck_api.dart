@@ -13,6 +13,8 @@ class SwipeRestaurant {
     required this.address,
     required this.photoReference,
     required this.googleMapsUrl,
+    this.latitude,
+    this.longitude,
   });
 
   final String id;
@@ -22,6 +24,8 @@ class SwipeRestaurant {
   final String? address;
   final String? photoReference;
   final String? googleMapsUrl;
+  final double? latitude;
+  final double? longitude;
 }
 
 class SwipeResult {
