@@ -47,6 +47,14 @@ class GroupsApi {
     _check(response);
     return FoodGroup.fromJson(jsonDecode(response.body));
   }
+  Future<void> leave(String groupId) async {
+    final response = await _client.delete(Uri.parse('$_baseUrl/groups/$groupId/leave'), headers: await _headers());
+    _check(response);
+  }
+  Future<void> remove(String groupId) async {
+    final response = await _client.delete(Uri.parse('$_baseUrl/groups/$groupId'), headers: await _headers());
+    _check(response);
+  }
   Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken');

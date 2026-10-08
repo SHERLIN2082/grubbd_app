@@ -48,6 +48,8 @@ class PlacesApi {
     final items = jsonDecode(response.body) as List<dynamic>;
     return items.map((item) {
       final json = item as Map<String, dynamic>;
+      final geometry = json['geometry'] as Map<String, dynamic>?;
+      final location = geometry?['location'] as Map<String, dynamic>?;
       return SwipeRestaurant(
         id: json['place_id'].toString(),
         name: json['name']?.toString() ?? 'Restaurant',
@@ -56,6 +58,8 @@ class PlacesApi {
         address: json['vicinity']?.toString(),
         photoReference: null,
         googleMapsUrl: null,
+        latitude: (json['latitude'] as num?)?.toDouble() ?? (location?['lat'] as num?)?.toDouble(),
+        longitude: (json['longitude'] as num?)?.toDouble() ?? (location?['lng'] as num?)?.toDouble(),
       );
     }).toList();
   }
@@ -73,6 +77,7 @@ class PlacesApi {
     required double latitude,
     required double longitude,
     String? foodPreference,
+    String? category,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken');
@@ -81,6 +86,7 @@ class PlacesApi {
     if (foodPreference != null && foodPreference != 'Any food') {
       query['foodPreference'] = foodPreference;
     }
+    if (category != null) query['category'] = category;
     final uri = Uri.parse(
       '$_baseUrl/places/nearby',
     ).replace(queryParameters: query);
@@ -98,6 +104,8 @@ class PlacesApi {
       final firstPhoto = photos != null && photos.isNotEmpty
           ? photos.first as Map<String, dynamic>
           : null;
+      final geometry = json['geometry'] as Map<String, dynamic>?;
+      final location = geometry?['location'] as Map<String, dynamic>?;
       return SwipeRestaurant(
         id: json['place_id'].toString(),
         name: json['name']?.toString() ?? 'Restaurant',
@@ -106,6 +114,8 @@ class PlacesApi {
         address: json['vicinity']?.toString(),
         photoReference: firstPhoto?['photo_reference']?.toString(),
         googleMapsUrl: null,
+        latitude: (json['latitude'] as num?)?.toDouble() ?? (location?['lat'] as num?)?.toDouble(),
+        longitude: (json['longitude'] as num?)?.toDouble() ?? (location?['lng'] as num?)?.toDouble(),
       );
     }).toList();
   }

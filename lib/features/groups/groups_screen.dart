@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:grubbd_app/features/shell/social_bottom_bar.dart';
 import 'package:grubbd_app/core/network/groups_api.dart';
 import 'package:grubbd_app/features/groups/group_detail_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key, this.api});
@@ -29,6 +31,47 @@ class _GroupsScreenState extends State<GroupsScreen> {
     });
   }
 
+  Future<void> groupAction(String action, FoodGroup group) async {
+    final invite = 'Join my Grubbd group "${group.name}". Group code: ${group.id}';
+    if (action == 'share') {
+      await SharePlus.instance.share(ShareParams(text: invite));
+      return;
+    }
+    if (action == 'copy') {
+      await Clipboard.setData(ClipboardData(text: invite));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite copied')));
+      return;
+    }
+    if (action == 'leave') {
+      final confirmed = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+        title: const Text('Leave group?'),
+        content: Text('Leave ${group.name}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Leave')),
+        ],
+      ));
+      if (confirmed == true) {
+        await api.leave(group.id);
+        if (mounted) setState(() { groups = api.list(); });
+      }
+    }
+    if (action == 'delete') {
+      final confirmed = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+        title: const Text('Delete group?'),
+        content: Text('Delete ${group.name} permanently?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ));
+      if (confirmed == true) {
+        await api.remove(group.id);
+        if (mounted) setState(() { groups = api.list(); });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     bottomNavigationBar: const SocialBottomBar(selectedIndex: 2),
@@ -40,7 +83,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
         if (snapshot.hasError) return Center(child: Text(snapshot.error.toString()));
         final items = snapshot.data!;
         if (items.isEmpty) return const Center(child: Text('Create a group to decide where to eat together.'));
-        return ListView.separated(padding: const EdgeInsets.all(16), itemCount: items.length, separatorBuilder: (_, index) => const Divider(), itemBuilder: (_, index) => ListTile(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GroupDetailScreen(groupId: items[index].id))), leading: const CircleAvatar(child: Icon(Icons.groups)), title: Text(items[index].name), subtitle: Text('${items[index].memberIds.length} members'), trailing: PopupMenuButton<String>(onSelected: (value) async { if (value == 'join') { await api.join(items[index].id); if (mounted) setState(() { groups = api.list(); }); } else if (value == 'decide' && mounted) { Navigator.pushNamed(context, '/create-session'); } }, itemBuilder: (_) => const [PopupMenuItem(value: 'join', child: Text('Join group')), PopupMenuItem(value: 'decide', child: Text('Start a group decision'))])));
+        return ListView.separated(padding: const EdgeInsets.all(16), itemCount: items.length, separatorBuilder: (_, index) => const Divider(), itemBuilder: (_, index) => ListTile(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GroupDetailScreen(groupId: items[index].id))), leading: const CircleAvatar(child: Icon(Icons.groups)), title: Text(items[index].name), subtitle: Text('${items[index].memberIds.length} members'), trailing: PopupMenuButton<String>(onSelected: (value) async { if (value == 'join') { await api.join(items[index].id); if (mounted) setState(() { groups = api.list(); }); } else { await groupAction(value, items[index]); } }, itemBuilder: (_) => const [PopupMenuItem(value: 'share', child: Text('Share invite')), PopupMenuItem(value: 'copy', child: Text('Copy invite')), PopupMenuItem(value: 'leave', child: Text('Leave group')), PopupMenuItem(value: 'delete', child: Text('Delete group'))])));
       },
     ),
   );
