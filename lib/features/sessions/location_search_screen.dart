@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:grubbd_app/core/widgets/app_back_button.dart';
 import 'package:grubbd_app/core/network/create_session_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/sessions/map_confirmation_screen.dart';
@@ -113,10 +114,8 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                       children: [
                         Row(
                           children: [
-                            IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.arrow_back),
-                            ),
+                            const AppBackButton(),
+                            const SizedBox(width: 8),
                             const Text(
                               'Choose Location',
                               style: TextStyle(

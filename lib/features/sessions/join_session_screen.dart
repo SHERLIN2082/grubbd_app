@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:grubbd_app/core/widgets/app_back_button.dart';
 import 'package:grubbd_app/core/network/home_api.dart';
 import 'package:grubbd_app/features/first_screen/first_screen.dart';
 import 'package:grubbd_app/features/lobby/lobby_screen.dart';
@@ -76,12 +77,12 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 430),
                   child: Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                     decoration: BoxDecoration(
-                      color: const Color(0xF2FFF8EE),
-                      borderRadius: BorderRadius.circular(24),
+                      color: Colors.white.withOpacity(0.96),
+                      borderRadius: BorderRadius.circular(28),
                       boxShadow: const [
-                        BoxShadow(color: Colors.black26, blurRadius: 18),
+                        BoxShadow(color: Color(0x28000000), blurRadius: 24, offset: Offset(0, 8)),
                       ],
                     ),
                     child: Column(
@@ -90,10 +91,8 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
                       children: [
                         Row(
                           children: [
-                            IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.arrow_back),
-                            ),
+                            const AppBackButton(),
+                            const SizedBox(width: 8),
                             const Text(
                               'Join Session',
                               style: TextStyle(
@@ -104,18 +103,32 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
                           ],
                         ),
                         const SizedBox(height: 18),
-                        const Text(
-                          'Enter the room code',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
+                        const Center(
+                          child: Text(
+                            '🔑',
+                            style: TextStyle(fontSize: 40),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Center(
+                          child: Text(
+                            'Enter the room code',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1E1A1A),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Ask the session host for their 5-character code.',
+                        const Center(
+                          child: Text(
+                            'Ask the session host for their 5-character code.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 13.5, color: Color(0xFF756D69)),
+                          ),
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 24),
                         TextField(
                           key: const Key('room-code-field'),
                           controller: codeController,
@@ -123,17 +136,32 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
                           textAlign: TextAlign.center,
                           textCapitalization: TextCapitalization.characters,
                           style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
                             letterSpacing: 10,
+                            color: Color(0xFFFF594D),
                           ),
                           decoration: InputDecoration(
+                            counterText: '',
                             hintText: 'A7B2C',
+                            hintStyle: const TextStyle(
+                              color: Color(0xFFD4C8C2),
+                              fontSize: 28,
+                              letterSpacing: 8,
+                            ),
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: const Color(0xFFFFF6F4),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: const BorderSide(color: Color(0xFFFF594D), width: 1.5),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(color: const Color(0xFFFF594D).withOpacity(0.3), width: 1.5),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: const BorderSide(color: Color(0xFFFF594D), width: 2),
                             ),
                           ),
                           onChanged: (_) {
@@ -143,14 +171,17 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
                           },
                           onSubmitted: (_) => joinSession(),
                         ),
-                        if (errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                        if (errorMessage != null) ...[
+                          const SizedBox(height: 10),
+                          Center(
                             child: Text(
                               errorMessage!,
-                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700, fontSize: 13),
                             ),
                           ),
+                        ],
+                        const SizedBox(height: 20),
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -158,7 +189,9 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
                             key: const Key('join-session-submit'),
                             onPressed: isJoining ? null : joinSession,
                             style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFFE94F54),
+                              backgroundColor: const Color(0xFFFF594D),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             ),
                             child: isJoining
                                 ? const SizedBox.square(
@@ -168,7 +201,7 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Text('Join Session'),
+                                : const Text('Join Session', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                           ),
                         ),
                       ],

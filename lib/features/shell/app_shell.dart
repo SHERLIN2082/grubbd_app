@@ -8,7 +8,15 @@ import 'package:grubbd_app/core/network/swipe_deck_api.dart';
 import 'package:grubbd_app/core/network/create_session_api.dart';
 import 'package:grubbd_app/core/network/profile_api.dart';
 import 'package:grubbd_app/core/network/saved_places_api.dart';
+import 'package:grubbd_app/core/network/groups_api.dart';
+import 'package:grubbd_app/core/network/posts_api.dart';
+import 'package:grubbd_app/core/network/collections_api.dart';
+import 'package:grubbd_app/core/network/food_trail_api.dart';
+import 'package:grubbd_app/core/widgets/avatar_image.dart';
+import 'package:grubbd_app/core/widgets/app_back_button.dart';
+import 'package:grubbd_app/features/profile/update_profile_screen.dart';
 import 'package:grubbd_app/features/sessions/location_search_screen.dart';
+import 'package:grubbd_app/features/groups/group_detail_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,66 +26,94 @@ import 'package:latlong2/latlong.dart';
 class AppShell extends StatefulWidget {
   const AppShell({super.key, this.initialIndex = 0});
   final int initialIndex;
+
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
   late int index = widget.initialIndex;
-  final pages = const [
-    HomeScreen(),
-    _ExplorePage(),
-    _GroupsPage(),
-    _ProfilePage(),
+
+  late final pages = [
+    HomeScreen(onSwitchTab: (newIndex) => setState(() => index = newIndex)),
+    _ExplorePage(onBackToHome: () => setState(() => index = 0)),
+    _GroupsPage(onBackToHome: () => setState(() => index = 0)),
+    _ProfilePage(onBackToHome: () => setState(() => index = 0)),
   ];
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: Stack(
-      fit: StackFit.expand,
-      children: [
-        ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: const Image(
-            image: AssetImage(AppAssets.firstScreenBackground),
-            fit: BoxFit.cover,
+  Widget build(BuildContext context) => PopScope(
+    canPop: index == 0 && !Navigator.canPop(context),
+    onPopInvokedWithResult: (didPop, result) {
+      if (didPop) return;
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else if (index != 0) {
+        setState(() => index = 0);
+      }
+    },
+    child: Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: const Image(
+              image: AssetImage(AppAssets.firstScreenBackground),
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
-        IndexedStack(index: index, children: pages),
-      ],
+          IndexedStack(index: index, children: pages),
+        ],
+      ),
+      bottomNavigationBar: Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.92),
+        boxShadow: const [
+          BoxShadow(color: Color(0x10000000), blurRadius: 16, offset: Offset(0, -4)),
+        ],
+      ),
+      child: NavigationBar(
+        backgroundColor: Colors.transparent,
+        selectedIndex: index,
+        onDestinationSelected: (value) => setState(() => index = value),
+        height: 68,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore_rounded),
+            label: 'Explore',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined),
+            selectedIcon: Icon(Icons.groups_rounded),
+            label: 'Squads',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'Profile',
+          ),
+        ],
+      ),
     ),
-    bottomNavigationBar: NavigationBar(
-      backgroundColor: const Color(0xDDFFF8EE),
-      selectedIndex: index,
-      onDestinationSelected: (value) => setState(() => index = value),
-      height: 68,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.explore_outlined),
-          selectedIcon: Icon(Icons.explore),
-          label: 'Explore',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.groups_outlined),
-          selectedIcon: Icon(Icons.groups),
-          label: 'Groups',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'Profile',
-        ),
-      ],
-    ),
-  );
+  ),
+);
 }
 
+// -------------------------------------------------------------
+// EXPLORE PAGE
+// -------------------------------------------------------------
+
 class _ExplorePage extends StatefulWidget {
-  const _ExplorePage();
+  const _ExplorePage({this.onBackToHome});
+  final VoidCallback? onBackToHome;
+
   @override
   State<_ExplorePage> createState() => _ExplorePageState();
 }
@@ -85,10 +121,38 @@ class _ExplorePage extends StatefulWidget {
 class _ExplorePageState extends State<_ExplorePage> {
   late Future<List<SwipeRestaurant>> restaurants = _loadRestaurants();
   final searchController = TextEditingController();
-  List<Map<String, String>> searchResults = [];
   List<SwipeRestaurant> typedResults = [];
   bool searching = false;
   String selectedFilter = 'All';
+  bool showMap = false;
+  final Set<String> savedPlaceIds = <String>{};
+
+  final categories = const [
+    ('All', '🌟 All'),
+    ('Pizza', '🍕 Pizza'),
+    ('Asian', '🍜 Asian'),
+    ('Cafe', '☕ Cafe'),
+    ('Burgers', '🍔 Burgers'),
+    ('Desserts', '🍰 Desserts'),
+    ('Italian', '🍝 Italian'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialSavedPlaces();
+  }
+
+  Future<void> _loadInitialSavedPlaces() async {
+    try {
+      final saved = await SavedPlacesApi().list();
+      if (mounted) {
+        setState(() {
+          savedPlaceIds.addAll(saved.map((e) => e.externalId));
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<void> _selectFilter(String filter) async {
     setState(() {
@@ -121,16 +185,15 @@ class _ExplorePageState extends State<_ExplorePage> {
 
   Future<Position> _currentPosition() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
-      throw Exception('Turn on location to explore nearby places');
+      throw Exception('Turn on device location to explore restaurants near you.');
     }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
     if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-      throw Exception('Location permission is needed');
+      throw Exception('Location permission is needed to find nearby bites.');
     }
     return Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
   }
-  final Set<String> savedPlaceIds = <String>{};
 
   Future<void> _toggleSaved(SwipeRestaurant restaurant) async {
     try {
@@ -148,13 +211,19 @@ class _ExplorePageState extends State<_ExplorePage> {
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(saved ? 'Saved to your places' : 'Removed from saved places')),
+          SnackBar(
+            backgroundColor: const Color(0xFF1E1A1A),
+            content: Text(
+              saved ? 'Saved "${restaurant.name}" to your places! 🔖' : 'Removed from saved places',
+            ),
+          ),
         );
       }
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     }
   }
+
   @override
   void dispose() {
     searchController.dispose();
@@ -188,20 +257,7 @@ class _ExplorePageState extends State<_ExplorePage> {
   }
 
   Future<List<SwipeRestaurant>> _loadRestaurants() async {
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      throw Exception('Turn on location to find restaurants');
-    }
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      throw Exception('Location permission is needed');
-    }
-    final position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    final position = await _currentPosition();
     final preference = await ProfileApi().getFoodPreference();
     return PlacesApi().nearby(
       latitude: position.latitude,
@@ -213,154 +269,359 @@ class _ExplorePageState extends State<_ExplorePage> {
   @override
   Widget build(BuildContext context) => SafeArea(
     child: ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
+        // Header
         Row(
           children: [
-            IconButton(
+            AppBackButton(
+              tooltip: 'Back to Home',
               onPressed: () {
                 if (Navigator.canPop(context)) {
                   Navigator.pop(context);
                 } else {
-                  Navigator.pushReplacementNamed(context, '/home');
+                  widget.onBackToHome?.call();
                 }
               },
-              icon: const Icon(Icons.arrow_back),
             ),
-            Text(
-              'Explore',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Explore & Discover 🌮',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E1A1A),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Find top-rated spots or satisfy your craving',
+                    style: TextStyle(color: Color(0xFF756D69), fontSize: 13),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Find somewhere delicious for your group.',
-          style: TextStyle(color: Colors.black54),
-        ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: searchController,
-          onSubmitted: _search,
-          textInputAction: TextInputAction.search,
-          decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search),
-            hintText: 'Search restaurants or cuisines',
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          children: [
-            FilterChip(label: const Text('All'), selected: selectedFilter == 'All', onSelected: (_) => _selectFilter('All')),
-            FilterChip(label: const Text('Asian'), selected: selectedFilter == 'Asian', onSelected: (_) => _selectFilter('Asian')),
-            FilterChip(label: const Text('Italian'), selected: selectedFilter == 'Italian', onSelected: (_) => _selectFilter('Italian')),
-            FilterChip(label: const Text('Cafe'), selected: selectedFilter == 'Cafe', onSelected: (_) => _selectFilter('Cafe')),
-            FilterChip(label: const Text('Desserts'), selected: selectedFilter == 'Desserts', onSelected: (_) => _selectFilter('Desserts')),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (searching) const LinearProgressIndicator(),
-        if (typedResults.isNotEmpty && selectedFilter == 'All')
-          ...typedResults.map(
-            (restaurant) => Card(
-              child: ListTile(
-                onTap: () => _openMap(restaurant),
-                leading: const Icon(Icons.restaurant, color: Color(0xFFE94F54)),
-                title: Text(restaurant.name),
-                subtitle: Text('  •  '),
-                trailing: IconButton(
-                  tooltip: 'Save place',
-                  onPressed: () => _toggleSaved(restaurant),
-                  icon: Icon(savedPlaceIds.contains(restaurant.id) ? Icons.bookmark : Icons.bookmark_border),
-                  color: savedPlaceIds.contains(restaurant.id) ? Colors.black87 : null,
+            const SizedBox(width: 8),
+            const SizedBox(width: 8),
+            // Map / List view toggle
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.black.withOpacity(0.08)),
+              ),
+              child: IconButton(
+                tooltip: showMap ? 'Switch to List' : 'Switch to Map',
+                onPressed: () => setState(() => showMap = !showMap),
+                icon: Icon(
+                  showMap ? Icons.view_agenda_outlined : Icons.map_outlined,
+                  color: const Color(0xFFFF594D),
                 ),
               ),
             ),
-          ),
-        const SizedBox(height: 28),
-        const Text(
-          'Nearby restaurants',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ],
         ),
-        const SizedBox(height: 8),
-        FutureBuilder<List<SwipeRestaurant>>(
-          future: restaurants,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+
+        const SizedBox(height: 18),
+
+        // Modern Search Bar
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(color: Color(0x0C000000), blurRadius: 10, offset: Offset(0, 3)),
+            ],
+          ),
+          child: TextField(
+            controller: searchController,
+            onSubmitted: _search,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search sushi, tacos, burgers, cafes...',
+              hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF9E948E)),
+              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFFF594D)),
+              suffixIcon: searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        searchController.clear();
+                        _selectFilter('All');
+                      },
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.arrow_forward_rounded, color: Color(0xFFFF594D)),
+                      onPressed: () => _search(searchController.text),
+                    ),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              filled: false,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // Craving Categories Bar
+        SizedBox(
+          height: 42,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final cat = categories[index];
+              final isSelected = selectedFilter == cat.$1;
+              return ChoiceChip(
+                label: Text(
+                  cat.$2,
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    fontSize: 13,
+                    color: isSelected ? Colors.white : const Color(0xFF2C2523),
+                  ),
+                ),
+                selected: isSelected,
+                selectedColor: const Color(0xFFFF594D),
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: isSelected ? Colors.transparent : Colors.black.withOpacity(0.08),
+                  ),
+                ),
+                showCheckmark: false,
+                onSelected: (_) => _selectFilter(cat.$1),
               );
-            }
-            if (snapshot.hasError) {
+            },
+          ),
+        ),
+
+        const SizedBox(height: 18),
+
+        if (searching)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator(color: Color(0xFFFF594D))),
+          ),
+
+        // List or Map rendering
+        if (!searching)
+          FutureBuilder<List<SwipeRestaurant>>(
+            future: restaurants,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                  height: 300,
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFFFF594D))),
+                );
+              }
+
+              if (snapshot.hasError && typedResults.isEmpty) {
+                return Container(
+                  margin: const EdgeInsets.only(top: 20),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.location_off_rounded, size: 44, color: Color(0xFFFF594D)),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Location Needed',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        snapshot.error.toString().replaceFirst('Exception: ', ''),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Color(0xFF756D69), fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        onPressed: () => setState(() => restaurants = _loadRestaurants()),
+                        child: const Text('Turn on & Retry'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final displayList = typedResults.isNotEmpty ? typedResults : (snapshot.data ?? <SwipeRestaurant>[]);
+
+              if (displayList.isEmpty) {
+                return Container(
+                  margin: const EdgeInsets.only(top: 24),
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    children: const [
+                      Text('🍽️', style: TextStyle(fontSize: 40)),
+                      SizedBox(height: 12),
+                      Text(
+                        'No restaurants found',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Try searching for another cuisine or expanding your radius.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Color(0xFF756D69), fontSize: 13),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (showMap) {
+                return _buildRestaurantMap(displayList);
+              }
+
               return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    snapshot.error.toString().replaceFirst('Exception: ', ''),
-                  ),
-                  TextButton(
-                    onPressed: () =>
-                        setState(() {
-                          restaurants = _loadRestaurants();
-                        }),
-                    child: const Text('Try again'),
-                  ),
-                ],
-              );
-            }
-            /* return Column(
-              children: [
-                _buildRestaurantMap(typedResults.isNotEmpty ? typedResults : snapshot.data!),
-                ...snapshot.data!
-                  .map(
-                    (restaurant) => Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
-                        onTap: () => _openMap(restaurant),
-                        leading: const Icon(
-                          Icons.restaurant,
-                          color: Color(0xFFE94F54),
-                        ),
-                        title: Text(
-                          restaurant.name,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        subtitle: Text(
-                          '${restaurant.rating?.toStringAsFixed(1) ?? 'New'}  â€¢  ${restaurant.address ?? 'Nearby'}',
-                        ),
-                        trailing: IconButton(
-                          tooltip: 'Save place',
-                          onPressed: () => _toggleSaved(restaurant),
-                          icon: Icon(savedPlaceIds.contains(restaurant.id) ? Icons.bookmark : Icons.bookmark_border),
-                          color: savedPlaceIds.contains(restaurant.id) ? Colors.black87 : null,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Found ${displayList.length} places',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1E1A1A),
                         ),
                       ),
-                    ),
-                  )
-                  .toList(),
-              ],
-            ); */
-            return _buildRestaurantMap(snapshot.data!);
-          },
-        ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFE0D9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.directions_outlined, size: 13, color: Color(0xFFFF594D)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Tap card for Maps',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFFF594D),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ...displayList.map(_restaurantCard),
+                ],
+              );
+            },
+          ),
       ],
     ),
   );
 
-  Widget _categoryCard(String title, IconData icon, String value) {
-    final selected = selectedFilter == value;
-    return Card(
-      margin: EdgeInsets.zero,
-      color: selected ? const Color(0xFFFFD9CF) : const Color(0xF2FFF8EE),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => _selectFilter(value),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-          child: Column(children: [Icon(icon, size: 32, color: const Color(0xFFE94F54)), const SizedBox(height: 8), Text(title, style: const TextStyle(fontWeight: FontWeight.w800))]),
+  Widget _restaurantCard(SwipeRestaurant restaurant) {
+    final isSaved = savedPlaceIds.contains(restaurant.id);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x08000000), blurRadius: 10, offset: Offset(0, 3)),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        onTap: () => _openMap(restaurant),
+        leading: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF594D).withOpacity(0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Center(
+            child: Icon(Icons.restaurant_rounded, color: Color(0xFFFF594D), size: 24),
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                restaurant.name,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              ),
+            ),
+            if (restaurant.rating != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 14),
+                    const SizedBox(width: 2),
+                    Text(
+                      restaurant.rating!.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF8D6E63),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            restaurant.address ?? 'Nearby eatery',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12.5, color: Color(0xFF756D69)),
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Directions',
+              onPressed: () => _openMap(restaurant),
+              icon: const Icon(Icons.directions_outlined, color: Color(0xFF26A69A)),
+            ),
+            IconButton(
+              tooltip: isSaved ? 'Remove save' : 'Save place',
+              onPressed: () => _toggleSaved(restaurant),
+              icon: Icon(
+                isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                color: isSaved ? const Color(0xFFFF594D) : const Color(0xFF756D69),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -368,167 +629,469 @@ class _ExplorePageState extends State<_ExplorePage> {
 
   Widget _buildRestaurantMap(List<SwipeRestaurant> restaurants) {
     final mapped = restaurants.where((item) => item.latitude != null && item.longitude != null).toList();
-    if (mapped.isEmpty) return const SizedBox.shrink();
+    if (mapped.isEmpty) {
+      return Container(
+        height: 240,
+        alignment: Alignment.center,
+        child: const Text('No GPS coordinates available for these places.'),
+      );
+    }
     final first = mapped.first;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: SizedBox(
-          height: 520,
-          child: FlutterMap(
-            options: MapOptions(initialCenter: LatLng(first.latitude!, first.longitude!), initialZoom: 13),
-            children: [
-              TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.grubbd.grubbd_app'),
-              MarkerLayer(markers: mapped.map((item) => Marker(point: LatLng(item.latitude!, item.longitude!), width: 44, height: 44, child: Tooltip(message: item.name, waitDuration: const Duration(milliseconds: 250), child: GestureDetector(onTap: () => _openMap(item), child: const Icon(Icons.location_on, color: Color(0xFFE94F54), size: 40))))).toList()),
-            ],
-          ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: SizedBox(
+        height: 480,
+        child: Stack(
+          children: [
+            FlutterMap(
+              options: MapOptions(initialCenter: LatLng(first.latitude!, first.longitude!), initialZoom: 13),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.grubbd.grubbd_app',
+                ),
+                MarkerLayer(
+                  markers: mapped
+                      .map(
+                        (item) => Marker(
+                          point: LatLng(item.latitude!, item.longitude!),
+                          width: 44,
+                          height: 44,
+                          child: Tooltip(
+                            message: item.name,
+                            waitDuration: const Duration(milliseconds: 200),
+                            child: GestureDetector(
+                              onTap: () => _openMap(item),
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black26, blurRadius: 6),
+                                  ],
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                child: const Icon(Icons.restaurant, color: Color(0xFFFF594D), size: 22),
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x20000000), blurRadius: 8, offset: Offset(0, 2)),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.location_on, size: 14, color: Color(0xFFFF594D)),
+                    SizedBox(width: 4),
+                    Text(
+                      'Tap pin for Google Maps',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E1A1A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+// -------------------------------------------------------------
+// GROUPS PAGE
+// -------------------------------------------------------------
+
 class _GroupsPage extends StatefulWidget {
-  const _GroupsPage();
+  const _GroupsPage({this.onBackToHome});
+  final VoidCallback? onBackToHome;
+
   @override
   State<_GroupsPage> createState() => _GroupsPageState();
 }
 
 class _GroupsPageState extends State<_GroupsPage> {
-  late Future<List<RecentSession>> data = HomeApi().loadHistory();
+  late Future<List<RecentSession>> historyData = HomeApi().loadHistory();
+  late Future<List<FoodGroup>> groups = GroupsApi().list();
 
-  Future<void> _showCreateOptions() async {
-    await showModalBottomSheet<void>(
+  Future<void> _createGroup() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Create Food Squad 🍕', style: TextStyle(fontWeight: FontWeight.w800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              leading: const Icon(Icons.add_a_photo_outlined),
-              title: const Text('Create a Grubb'),
-              subtitle: const Text('Share a food experience'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(this.context, '/create-grubb');
-              },
+            const Text(
+              'Give your dining crew a fun name (e.g. Lunch Pals, Pizza Friday).',
+              style: TextStyle(fontSize: 13, color: Color(0xFF756D69)),
             ),
-            ListTile(
-              leading: const Icon(Icons.groups_outlined),
-              title: const Text('Create Session'),
-              subtitle: const Text('Decide where your group should eat'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(this.context, '/create-session');
-              },
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Squad Name'),
             ),
           ],
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Create Squad'),
+          ),
+        ],
       ),
     );
+    controller.dispose();
+    if (name == null || name.isEmpty) return;
+    await GroupsApi().create(name);
+    if (mounted) {
+      setState(() {
+        groups = GroupsApi().list();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Groups',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+    child: RefreshIndicator(
+      color: const Color(0xFFFF594D),
+      onRefresh: () async {
+        setState(() {
+          historyData = HomeApi().loadHistory();
+          groups = GroupsApi().list();
+        });
+      },
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        children: [
+          // Header
+          Row(
+            children: [
+              AppBackButton(
+                tooltip: 'Back to Home',
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    widget.onBackToHome?.call();
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Food Squads 🍕',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E1A1A),
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Plan food together without endless debates',
+                      style: TextStyle(color: Color(0xFF756D69), fontSize: 13),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            IconButton(
-              onPressed: _showCreateOptions,
-              icon: const Icon(Icons.add_circle_outline),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Plan food with your people.',
-          style: TextStyle(color: Colors.black54),
-        ),
-        const SizedBox(height: 24),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.groups_outlined),
-            title: const Text('Open my groups'),
-            subtitle: const Text('Create and manage your food groups'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/groups'),
-          ),
-        ),
-        const SizedBox(height: 20),
-        const Text('Your Sessions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        FutureBuilder<List<RecentSession>>(
-          future: data,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return const Text(
-                'Could not load your sessions. Pull to refresh.',
-              );
-            }
-            final items = snapshot.data!
-                .where((session) => session.status == 'COMPLETED')
-                .toList();
-            if (items.isEmpty) {
-              return const Text(
-                'No sessions yet. Create one and invite your friends.',
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Recent',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _createGroup,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('New'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF594D),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  minimumSize: Size.zero,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                ...items.map(
-                  (s) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.groups_outlined),
-                    title: Text(s.restaurantName ?? 'Room ${s.roomCode}'),
-                    subtitle: Text(
-                      s.members.isEmpty
-                          ? s.status
-                          : '${s.status} · ${s.members.map((member) => member['displayName']).join(', ')}',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // Explainer Card for Beginners
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF5C6BC0), Color(0xFF7986CB)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: const [
+                BoxShadow(color: Color(0x285C6BC0), blurRadius: 14, offset: Offset(0, 6)),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Dinner Decisions Made Easy 🗳️',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Form a squad with friends or coworkers. Tap "Start Dinner Vote" to find what everyone wants!',
+                        style: TextStyle(color: Colors.white, fontSize: 13, height: 1.3),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pushNamed(context, '/create-session'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF3949AB),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          minimumSize: Size.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Start Dinner Vote 🚀', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                const Text('👥', style: TextStyle(fontSize: 46)),
               ],
-            );
-          },
-        ),
-      ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Active Squads Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'My Squads',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E1A1A)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, '/groups'),
+                child: const Text('Manage', style: TextStyle(color: Color(0xFFFF594D), fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          FutureBuilder<List<FoodGroup>>(
+            future: groups,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+              }
+              final squadList = snapshot.data ?? <FoodGroup>[];
+              if (squadList.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.black.withOpacity(0.06)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('🍕', style: TextStyle(fontSize: 28)),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text('No squads yet', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                            Text('Tap "New" at the top to add your first crew!', style: TextStyle(fontSize: 12, color: Color(0xFF756D69))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                children: squadList.map((g) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.black.withOpacity(0.06)),
+                    ),
+                    child: ListTile(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => GroupDetailScreen(groupId: g.id)),
+                      ),
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFFEDE7F6),
+                        child: const Icon(Icons.groups_rounded, color: Color(0xFF5C6BC0)),
+                      ),
+                      title: Text(g.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      subtitle: Text('${g.memberIds.length} members', style: const TextStyle(fontSize: 12, color: Color(0xFF756D69))),
+                      trailing: const Icon(Icons.chevron_right, color: Color(0xFF756D69)),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // Recent Decisions History
+          const Text(
+            'Past Group Decisions',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E1A1A)),
+          ),
+          const SizedBox(height: 10),
+
+          FutureBuilder<List<RecentSession>>(
+            future: historyData,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+              }
+              final items = (snapshot.data ?? <RecentSession>[])
+                  .where((session) => session.status == 'COMPLETED')
+                  .toList();
+
+              if (items.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.black.withOpacity(0.06)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('🎉', style: TextStyle(fontSize: 28)),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text('No completed votes yet', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                            Text('When your squad finishes a swipe session, your matched winner shows up here.', style: TextStyle(fontSize: 12, color: Color(0xFF756D69))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                children: items.map((s) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.black.withOpacity(0.06)),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 22),
+                      ),
+                      title: Text(
+                        s.restaurantName ?? 'Room ${s.roomCode}',
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                      ),
+                      subtitle: Text(
+                        s.members.isEmpty
+                            ? 'Matched Restaurant'
+                            : 'Voted by ${s.members.map((m) => m['displayName']).join(', ')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF756D69)),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
     ),
   );
 }
 
-class _ProfilePage extends StatelessWidget {
-  const _ProfilePage();
+// -------------------------------------------------------------
+// PROFILE PAGE
+// -------------------------------------------------------------
+
+class _ProfilePage extends StatefulWidget {
+  const _ProfilePage({this.onBackToHome});
+  final VoidCallback? onBackToHome;
+
+  @override
+  State<_ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<_ProfilePage> {
+  late Future<HomeData> profileData = HomeApi().loadHome();
+  late Future<List<FoodPost>> posts = PostsApi().list();
+  late Future<List<FoodCollection>> collections = CollectionsApi().list();
+  late Future<List<FoodTrailVisit>> trail = FoodTrailApi().list();
+
   Future<void> _settings(BuildContext context) async {
     await showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Settings'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Location & Privacy 📍', style: TextStyle(fontWeight: FontWeight.w800)),
         content: const Text(
-          'Grubbd uses your device location only when you search for nearby restaurants.',
+          'Grubbd uses device GPS solely to help you and your friends locate delicious eateries and compute nearby distances. Your location data is never sold or used for tracking.',
+          style: TextStyle(color: Color(0xFF756D69), height: 1.4),
         ),
         actions: [
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const Text('Got it'),
           ),
         ],
       ),
@@ -536,115 +1099,398 @@ class _ProfilePage extends StatelessWidget {
   }
 
   Future<void> _logout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('accessToken');
-    if (context.mounted) {
-      Navigator.pushNamedAndRemoveUntil(context, '/welcome', (_) => false);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Log out of Grubbd?'),
+        content: const Text('You will need to sign back in next time.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF594D)),
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('accessToken');
+      if (context.mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/welcome', (_) => false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Text(
-          'Profile',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Your profile and preferences',
-          style: TextStyle(color: Colors.black54),
-        ),
-        const SizedBox(height: 24),
-        Card(
-          margin: EdgeInsets.zero,
-          elevation: 1,
-          child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: const Text('Your Grubbd profile'),
-            subtitle: const Text('Update your name or avatar'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.pushNamed(context, '/profile'),
+    child: RefreshIndicator(
+      color: const Color(0xFFFF594D),
+      onRefresh: () async {
+        setState(() {
+          profileData = HomeApi().loadHome();
+          posts = PostsApi().list();
+          collections = CollectionsApi().list();
+          trail = FoodTrailApi().list();
+        });
+      },
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        children: [
+          Row(
+            children: [
+              AppBackButton(
+                tooltip: 'Back to Home',
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    widget.onBackToHome?.call();
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Profile & Account 🥑',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E1A1A),
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Manage your food profile, collections & preferences',
+                      style: TextStyle(color: Color(0xFF756D69), fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.account_circle_outlined),
-          title: const Text('View food profile'),
-          subtitle: const Text('Posts, collections, and trail'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.pushNamed(context, '/social-profile'),
-        ),
-        const SizedBox(height: 16),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.location_on_outlined),
-          title: const Text('Location'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => LocationSearchScreen(api: CreateSessionApi()),
+
+          const SizedBox(height: 20),
+
+          // User Card
+          FutureBuilder<HomeData>(
+            future: profileData,
+            builder: (context, snapshot) {
+              final user = snapshot.data;
+              final name = user?.displayName ?? 'Foodie';
+              final avatar = user?.avatar ?? '';
+
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x0C000000), blurRadius: 14, offset: Offset(0, 4)),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () async {
+                            final updated = await showUpdateProfileDialog(
+                              context,
+                              currentName: name,
+                              currentAvatar: avatar,
+                            );
+                            if (updated == true && mounted) {
+                              setState(() {
+                                profileData = HomeApi().loadHome();
+                              });
+                            }
+                          },
+                          child: Stack(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFFFF594D), width: 2.5),
+                                ),
+                                child: AvatarImage(
+                                  avatar: avatar,
+                                  fallbackText: name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                  size: 60,
+                                ),
+                              ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFF594D),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.edit, size: 10, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF1E1A1A),
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFE0D9),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Grubbd Explorer 🌮',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFFFF594D),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Edit Profile',
+                          onPressed: () async {
+                            final updated = await showUpdateProfileDialog(
+                              context,
+                              currentName: name,
+                              currentAvatar: avatar,
+                            );
+                            if (updated == true && mounted) {
+                              setState(() {
+                                profileData = HomeApi().loadHome();
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.edit_outlined, color: Color(0xFFFF594D)),
+                        ),
+                      ],
+                    ),
+
+                    const Divider(height: 28),
+
+                    // Stats Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStat('Posts 📸', posts.then((p) => '${p.length}')),
+                        _buildStat('Collections 🔖', collections.then((c) => '${c.length}')),
+                        _buildStat('Trail 🗺️', trail.then((t) => '${t.length}')),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 20),
+
+          // Food Hub Section
+          const Text(
+            'Your Food Hub',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E1A1A)),
+          ),
+          const SizedBox(height: 10),
+
+          _menuTile(
+            icon: Icons.account_circle_rounded,
+            color: const Color(0xFFFF594D),
+            title: 'My Food Profile',
+            subtitle: 'View your shared Grubbs, reviews & badges',
+            onTap: () => Navigator.pushNamed(context, '/social-profile'),
+          ),
+          _menuTile(
+            icon: Icons.badge_outlined,
+            color: const Color(0xFFFF594D),
+            title: 'Update Profile & Avatar',
+            subtitle: 'Change your foodie nickname or character icon',
+            onTap: () async {
+              final user = await profileData;
+              if (!context.mounted) return;
+              final updated = await showUpdateProfileDialog(
+                context,
+                currentName: user.displayName,
+                currentAvatar: user.avatar,
+              );
+              if (updated == true && mounted) {
+                setState(() {
+                  profileData = HomeApi().loadHome();
+                });
+              }
+            },
+          ),
+          _menuTile(
+            icon: Icons.bookmark_rounded,
+            color: const Color(0xFFFF9F1C),
+            title: 'My Collections',
+            subtitle: 'Saved spots and dream dinner wishlists',
+            onTap: () => Navigator.pushNamed(context, '/collections'),
+          ),
+          _menuTile(
+            icon: Icons.route_rounded,
+            color: const Color(0xFF26A69A),
+            title: 'My Food Trail',
+            subtitle: 'Interactive map and passport of visited places',
+            onTap: () => Navigator.pushNamed(context, '/food-trail'),
+          ),
+          _menuTile(
+            icon: Icons.groups_rounded,
+            color: const Color(0xFF5C6BC0),
+            title: 'Manage Squads',
+            subtitle: 'Create or invite friends to your dining crews',
+            onTap: () => Navigator.pushNamed(context, '/groups'),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Settings & Legal
+          const Text(
+            'Preferences & Info',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E1A1A)),
+          ),
+          const SizedBox(height: 10),
+
+          _menuTile(
+            icon: Icons.location_on_outlined,
+            color: const Color(0xFF756D69),
+            title: 'Set Default City / Search Location',
+            subtitle: 'Change where Grubbd looks for restaurants',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => LocationSearchScreen(api: CreateSessionApi()),
+              ),
             ),
           ),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.groups_outlined),
-          title: const Text('Groups'),
-          subtitle: const Text('Plan food with your people'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.pushNamed(context, '/groups'),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.collections_bookmark_outlined),
-          title: const Text('My Collections'),
-          subtitle: const Text('Saved places and food ideas'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.pushNamed(context, '/collections'),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.route_outlined),
-          title: const Text('Food Trail'),
-          subtitle: const Text('Places you have visited'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.pushNamed(context, '/food-trail'),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.settings_outlined),
-          title: const Text('Settings'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => _settings(context),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.description_outlined),
-          title: const Text('Terms & Conditions'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.pushNamed(context, '/terms'),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.privacy_tip_outlined),
-          title: const Text('Privacy Policy'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.pushNamed(context, '/privacy'),
-        ),
-        const Divider(height: 32),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.logout, color: Color(0xFFE94F54)),
-          title: const Text('Logout'),
-          onTap: () => _logout(context),
-        ),
-      ],
+          _menuTile(
+            icon: Icons.settings_outlined,
+            color: const Color(0xFF756D69),
+            title: 'Location Permissions & Privacy',
+            subtitle: 'How Grubbd uses GPS coordinates',
+            onTap: () => _settings(context),
+          ),
+          _menuTile(
+            icon: Icons.description_outlined,
+            color: const Color(0xFF756D69),
+            title: 'Terms of Service',
+            subtitle: 'Read our community guidelines',
+            onTap: () => Navigator.pushNamed(context, '/terms'),
+          ),
+          _menuTile(
+            icon: Icons.privacy_tip_outlined,
+            color: const Color(0xFF756D69),
+            title: 'Privacy Policy',
+            subtitle: 'Your data security on Grubbd',
+            onTap: () => Navigator.pushNamed(context, '/privacy'),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Log out
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.red.withOpacity(0.2)),
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.logout_rounded, color: Colors.red),
+              title: const Text(
+                'Log Out',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.w800),
+              ),
+              onTap: () => _logout(context),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+        ],
+      ),
     ),
   );
+
+  Widget _buildStat(String label, Future<String> future) {
+    return FutureBuilder<String>(
+      future: future,
+      builder: (context, snapshot) {
+        final val = snapshot.data ?? '—';
+        return Column(
+          children: [
+            Text(
+              val,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF1E1A1A),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF756D69), fontWeight: FontWeight.w600),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _menuTile({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        onTap: onTap,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 22),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF756D69))),
+        trailing: const Icon(Icons.chevron_right, color: Color(0xFF756D69), size: 20),
+      ),
+    );
+  }
 }

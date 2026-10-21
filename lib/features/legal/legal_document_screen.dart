@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:grubbd_app/core/widgets/app_back_button.dart';
 
 class LegalDocumentScreen extends StatelessWidget {
   const LegalDocumentScreen({super.key, required this.privacy});
@@ -9,7 +10,10 @@ class LegalDocumentScreen extends StatelessWidget {
     final title = privacy ? 'Privacy Policy' : 'Terms & Conditions';
     final sections = privacy ? _privacySections : _termsSections;
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        leading: const AppBackButton(),
+        title: Text(title),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         children: [
