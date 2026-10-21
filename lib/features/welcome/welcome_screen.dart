@@ -77,12 +77,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   constraints: const BoxConstraints(maxWidth: 430),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(28),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                     decoration: BoxDecoration(
-                      color: const Color(0xF2FFF8EE),
-                      borderRadius: BorderRadius.circular(24),
+                      color: Colors.white.withOpacity(0.96),
+                      borderRadius: BorderRadius.circular(28),
                       boxShadow: const [
-                        BoxShadow(color: Colors.black26, blurRadius: 18),
+                        BoxShadow(color: Color(0x28000000), blurRadius: 24, offset: Offset(0, 8)),
                       ],
                     ),
                     child: buildContent(),
@@ -99,8 +99,20 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   Widget buildContent() {
     if (isLoading) {
       return const SizedBox(
-        height: 300,
-        child: Center(child: CircularProgressIndicator()),
+        height: 280,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Color(0xFFFF594D)),
+              SizedBox(height: 16),
+              Text(
+                'Getting your table ready...',
+                style: TextStyle(color: Color(0xFF756D69), fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -110,26 +122,52 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
     return Column(
       children: [
-        AvatarImage(
-          avatar: avatar ?? '',
-          fallbackText: displayName?.isNotEmpty == true
-              ? displayName![0].toUpperCase()
-              : '?',
-          size: 88,
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFFF594D), width: 3),
+            boxShadow: const [
+              BoxShadow(color: Color(0x20FF594D), blurRadius: 16, offset: Offset(0, 4)),
+            ],
+          ),
+          child: AvatarImage(
+            avatar: avatar ?? '',
+            fallbackText: displayName?.isNotEmpty == true
+                ? displayName![0].toUpperCase()
+                : '?',
+            size: 88,
+          ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         Text(
-          'Welcome to Grubbd, $displayName!',
+          'Welcome to Grubbd, $displayName! 🎉',
           key: const Key('welcome-message'),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF1E1A1A),
+            letterSpacing: -0.5,
+          ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         const Text(
-          'Let\'s find something delicious together.',
+          'End the "anything is fine" debate and find delicious food together.',
           textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14, color: Color(0xFF756D69), height: 1.35),
         ),
-        const SizedBox(height: 30),
+        const SizedBox(height: 22),
+
+        // 3 Beginner Perks / How Grubbd Works
+        _featureTile('🍔', 'Swipe with Friends', 'Match on restaurants in 60 seconds'),
+        const SizedBox(height: 8),
+        _featureTile('📸', 'Share Your Grubbs', 'Post dish photos, stories & vibe checks'),
+        const SizedBox(height: 8),
+        _featureTile('🗺️', 'Build Your Food Trail', 'Track places you love and want to try'),
+
+        const SizedBox(height: 26),
+
         SizedBox(
           width: double.infinity,
           height: 52,
@@ -137,20 +175,54 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             key: const Key('welcome-continue-button'),
             onPressed: openHome,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFE94F54),
+              backgroundColor: const Color(0xFFFF594D),
+              elevation: 3,
+              shadowColor: const Color(0x40FF594D),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            child: const Text('Continue'),
+            child: const Text(
+              'Let\'s Eat! 🚀',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
           ),
         ),
       ],
     );
   }
 
+  Widget _featureTile(String emoji, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF9EE),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFF594D).withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 22)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF1E1A1A))),
+                Text(subtitle, style: const TextStyle(fontSize: 11.5, color: Color(0xFF756D69))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget buildError() {
     return Column(
       children: [
-        Text(errorMessage!, textAlign: TextAlign.center),
+        const Icon(Icons.error_outline_rounded, color: Color(0xFFFF594D), size: 48),
         const SizedBox(height: 12),
+        Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF756D69))),
+        const SizedBox(height: 16),
         FilledButton(onPressed: loadProfile, child: const Text('Try again')),
       ],
     );

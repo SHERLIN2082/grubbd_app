@@ -32,10 +32,19 @@ class _LoaderScreenState extends State<LoaderScreen>
     await Future<void>.delayed(const Duration(seconds: 5));
     if (!mounted) return;
 
-    // Let WelcomeScreen decide whether the user needs profile setup or can
-    // continue to the app. This prevents returning users from being sent
-    // through profile setup every time the loader is shown.
-    await Navigator.pushReplacementNamed(context, '/welcome');
+    final api = widget.profileApi ?? ProfileApi();
+    try {
+      final isComplete = await api.loginAndCheckProfile();
+      if (!mounted) return;
+      if (!isComplete) {
+        await Navigator.pushReplacementNamed(context, '/profile');
+        return;
+      }
+      await Navigator.pushReplacementNamed(context, '/welcome');
+    } catch (_) {
+      if (!mounted) return;
+      await Navigator.pushReplacementNamed(context, '/profile');
+    }
   }
 
   @override

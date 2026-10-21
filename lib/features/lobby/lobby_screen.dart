@@ -65,11 +65,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
         errorMessage = null;
       });
     } catch (error) {
-      if (mounted) {
-        setState(() {
-          errorMessage = error.toString().replaceFirst('Exception: ', '');
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        errorMessage = error.toString().replaceFirst('Exception: ', '');
+      });
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -96,7 +95,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         participants = updatedParticipants;
       });
     } catch (_) {
-      // Keep the last good participant list during a temporary refresh error.
+      // Keep last good participant list during temporary error
     }
   }
 
@@ -118,31 +117,31 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> confirmAndStartSwiping() async {
-    if (participants.length == 1) {
+    if (participants.length <= 1) {
       final startSolo = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Start by yourself?'),
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Start with just you? 🤔', style: TextStyle(fontWeight: FontWeight.w800)),
           content: const Text(
-            'You are the only person in this lobby. You can start swiping now '
-            'or wait for teammates to join.',
+            'No friends have joined yet. You can swipe solo, or invite someone with the room code to swipe together!',
+            style: TextStyle(fontSize: 13.5, color: Color(0xFF756D69), height: 1.35),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Wait for teammates'),
+              child: const Text('Wait for friends'),
             ),
             FilledButton(
-              key: const Key('start-solo-button'),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Start solo'),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF594D)),
+              child: const Text('Start Solo'),
             ),
           ],
         ),
       );
-      if (startSolo != true || !mounted) return;
+      if (startSolo != true) return;
     }
-
     await startSwiping();
   }
 
@@ -150,14 +149,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
     setState(() => isStarting = true);
     try {
       await api.startSession(widget.sessionId);
-      if (!mounted) return;
       await openSwipeDeck();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.toString().replaceFirst('Exception: ', '')),
-          ),
+          SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
         );
       }
     } finally {
@@ -166,58 +162,72 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> leaveLobby() async {
-    if (isLeaving) return;
-
-    if (details?.isHost == true) {
-      final shouldLeave = await showLeaveConfirmation();
-      if (!shouldLeave) return;
-      refreshTimer?.cancel();
+    if (details == null) {
+      Navigator.pop(context);
+      return;
     }
 
-    setState(() => isLeaving = true);
+    final confirmed = details!.isHost
+        ? await showHostLeaveConfirmation()
+        : await showParticipantLeaveConfirmation();
 
+    if (!confirmed || !mounted) return;
+
+    setState(() => isLeaving = true);
     try {
       await api.leaveSession(widget.sessionId);
+      refreshTimer?.cancel();
       if (!mounted) return;
-
-      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      Navigator.pop(context);
     } catch (error) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
-      setState(() => isLeaving = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isLeaving = false);
     }
   }
 
-  Future<bool> showLeaveConfirmation() async {
+  Future<bool> showParticipantLeaveConfirmation() async {
     final answer = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Leave the session?'),
-        content: const Text(
-          'You are the host. If you leave, the session will close for everyone.',
-        ),
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Leave session?'),
+        content: const Text('Are you sure you want to leave this dinner lobby?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF594D)),
+            child: const Text('Leave'),
           ),
+        ],
+      ),
+    );
+    return answer == true;
+  }
+
+  Future<bool> showHostLeaveConfirmation() async {
+    final answer = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('End the session?'),
+        content: const Text('You are the host. If you leave, the session will close for all members.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(
             key: const Key('confirm-host-leave-button'),
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFE94F54),
-            ),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF594D)),
             child: const Text('Leave Session'),
           ),
         ],
       ),
     );
-
     return answer == true;
   }
 
@@ -232,7 +242,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Future<void> shareInviteLink(String roomCode) async {
     try {
       final inviteLink = DeepLinkService.createInviteLink(roomCode);
-      final message = 'Join my Grubbd room!\nRoom code: $roomCode\n$inviteLink';
+      final message = 'Join my Grubbd food decision!\nRoom code: $roomCode\n$inviteLink';
 
       final result = await SharePlus.instance.share(
         ShareParams(
@@ -248,7 +258,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
       await Clipboard.setData(ClipboardData(text: message));
     } catch (_) {
-      // If sharing is unavailable, copy at least the room code.
       await Clipboard.setData(
         ClipboardData(text: 'Join my Grubbd room! Room code: $roomCode'),
       );
@@ -256,7 +265,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Invite copied to clipboard!')),
+      const SnackBar(
+        backgroundColor: Color(0xFF1E1A1A),
+        content: Text('Invite copied to clipboard! 📋'),
+      ),
     );
   }
 
@@ -272,15 +284,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
               padding: const EdgeInsets.all(20),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 430),
+                  constraints: const BoxConstraints(maxWidth: 440),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
                     decoration: BoxDecoration(
-                      color: const Color(0xF2FFF8EE),
-                      borderRadius: BorderRadius.circular(24),
+                      color: Colors.white.withOpacity(0.96),
+                      borderRadius: BorderRadius.circular(28),
                       boxShadow: const [
-                        BoxShadow(color: Colors.black26, blurRadius: 18),
+                        BoxShadow(color: Color(0x28000000), blurRadius: 24, offset: Offset(0, 8)),
                       ],
                     ),
                     child: _content(),
@@ -295,20 +307,35 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _content() {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
+    if (isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Color(0xFFFF594D)),
+            SizedBox(height: 14),
+            Text('Entering food lobby...', style: TextStyle(color: Color(0xFF756D69))),
+          ],
+        ),
+      );
+    }
+
     if (errorMessage != null || details == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(errorMessage ?? 'Could not load this lobby'),
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFFF594D), size: 44),
           const SizedBox(height: 12),
+          Text(errorMessage ?? 'Could not load this lobby', textAlign: TextAlign.center),
+          const SizedBox(height: 14),
           FilledButton(onPressed: loadLobby, child: const Text('Try again')),
         ],
       );
     }
 
     final lobby = details!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -319,51 +346,116 @@ class _LobbyScreenState extends State<LobbyScreen> {
               icon: const Icon(Icons.arrow_back),
             ),
             const Text(
-              'Lobby',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              'Dinner Lobby 🍔',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1E1A1A)),
             ),
             const Spacer(),
-            IconButton(onPressed: loadLobby, icon: const Icon(Icons.refresh)),
+            IconButton(
+              tooltip: 'Refresh',
+              onPressed: loadLobby,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
           ],
         ),
-        const SizedBox(height: 8),
-        const Center(
-          child: Text(
-            'ROOM CODE',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-          ),
-        ),
-        Center(
-          child: SelectableText(
-            lobby.roomCode,
-            key: const Key('lobby-room-code'),
-            style: const TextStyle(
-              color: Color(0xFFE94F54),
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 7,
+
+        const SizedBox(height: 12),
+
+        // Room Code Ticket Card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFF0EC), Color(0xFFFFE0D9)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFFF594D).withOpacity(0.3), width: 1.5),
+          ),
+          child: Column(
+            children: [
+              const Text(
+                'INVITE CODE',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
+                  color: Color(0xFFFF594D),
+                ),
+              ),
+              const SizedBox(height: 4),
+              SelectableText(
+                lobby.roomCode,
+                key: const Key('lobby-room-code'),
+                style: const TextStyle(
+                  color: Color(0xFFFF594D),
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 8,
+                ),
+              ),
+              const SizedBox(height: 6),
+              OutlinedButton.icon(
+                key: const Key('share-invite-link-button'),
+                onPressed: () => shareInviteLink(lobby.roomCode),
+                icon: const Icon(Icons.share_rounded, size: 16, color: Color(0xFFFF594D)),
+                label: const Text(
+                  'Share Invite Link 🔗',
+                  style: TextStyle(color: Color(0xFFFF594D), fontWeight: FontWeight.w800, fontSize: 13),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFFF594D), width: 1.5),
+                  backgroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  minimumSize: Size.zero,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
           ),
         ),
-        Center(
-          child: TextButton.icon(
-            key: const Key('share-invite-link-button'),
-            onPressed: () => shareInviteLink(lobby.roomCode),
-            icon: const Icon(Icons.share),
-            label: const Text('Share Invite'),
-          ),
-        ),
-        const SizedBox(height: 16),
+
+        const SizedBox(height: 14),
+
         _settingsCard(lobby),
+
         const SizedBox(height: 18),
-        Text(
-          '${participants.length} ${participants.length == 1 ? 'person' : 'people'} joined',
-          key: const Key('participant-count'),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '${participants.length} ${participants.length == 1 ? 'person' : 'people'} joined',
+              key: const Key('participant-count'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1E1A1A)),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.circle, color: Color(0xFF2E7D32), size: 8),
+                  SizedBox(width: 4),
+                  Text(
+                    'Live Room',
+                    style: TextStyle(color: Color(0xFF2E7D32), fontSize: 11, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 10),
+
+        const SizedBox(height: 8),
+
         Expanded(
           child: RefreshIndicator(
+            color: const Color(0xFFFF594D),
             onRefresh: refreshParticipants,
             child: ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -372,6 +464,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
             ),
           ),
         ),
+
+        const SizedBox(height: 12),
+
         if (lobby.isHost)
           SizedBox(
             width: double.infinity,
@@ -382,26 +477,43 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   ? null
                   : confirmAndStartSwiping,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE94F54),
+                backgroundColor: const Color(0xFFFF594D),
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               child: isStarting
                   ? const SizedBox.square(
                       dimension: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : Text(lobby.status == 'LOBBY' ? 'Start Swiping' : 'Started'),
+                  : Text(
+                      lobby.status == 'LOBBY' ? 'Start Swiping 🚀' : 'Started',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
             ),
           )
         else
-          const SizedBox(
+          Container(
             width: double.infinity,
-            child: Text(
-              'Waiting for the host to start…',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w700),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF9EE),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF9F1C)),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'Waiting for host to start swiping…',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF756D69), fontSize: 13.5),
+                ),
+              ],
             ),
           ),
       ],
@@ -413,26 +525,27 @@ class _LobbyScreenState extends State<LobbyScreen> {
         ? lobby.radiusKm.round().toString()
         : lobby.radiusKm.toStringAsFixed(1);
     final prices = lobby.priceLevels.isEmpty
-        ? 'Any price'
+        ? 'Any budget'
         : lobby.priceLevels.map((level) => r'$' * level).join(' · ');
     final rule = lobby.matchRule == 'ALL'
-        ? 'Everyone agrees'
-        : 'Majority agrees';
+        ? 'Unanimous match'
+        : 'Majority vote';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFE4B5),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
       ),
       child: Column(
         children: [
           _settingRow(
             Icons.location_on_outlined,
-            '${lobby.locationName} · $radius km',
+            '${lobby.locationName} · Within $radius km',
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           _settingRow(Icons.restaurant_outlined, '$prices · $rule'),
         ],
       ),
@@ -442,9 +555,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Widget _settingRow(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: const Color(0xFFE94F54)),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text, overflow: TextOverflow.ellipsis)),
+        Icon(icon, size: 16, color: const Color(0xFFFF594D)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF55504E)),
+          ),
+        ),
       ],
     );
   }
@@ -457,30 +576,37 @@ class _LobbyScreenState extends State<LobbyScreen> {
         .take(2)
         .map((part) => part[0].toUpperCase())
         .join();
-    return Card(
-      color: Colors.white,
-      elevation: 0,
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
+      ),
       child: ListTile(
         dense: true,
         leading: AvatarImage(
           avatar: participant.avatar,
           fallbackText: initials,
-          size: 34,
+          size: 36,
         ),
         title: Text(
           participant.displayName,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
         ),
-        trailing: Text(
-          participant.isHost ? 'Host' : 'Ready',
-          style: TextStyle(
-            color: participant.isHost
-                ? const Color(0xFFE94F54)
-                : Colors.green.shade700,
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: participant.isHost ? const Color(0xFFFFE0D9) : const Color(0xFFE8F5E9),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            participant.isHost ? 'Host ⭐' : 'Ready 👍',
+            style: TextStyle(
+              color: participant.isHost ? const Color(0xFFFF594D) : const Color(0xFF2E7D32),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ),
